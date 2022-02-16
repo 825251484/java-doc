@@ -1,0 +1,249 @@
+﻿⚫java内存模型JMM
+jvm运行的实体是每个线程，每个线程有自己独立的工作内存其中包含栈空间。而java中的变量存在主内存中，如果我们想对主内存中的变量进行操作，就要拷贝一本变量副本到本地内存中操作，
+，操作完再写回主内存中，不能直接操作主内存中的变量，所以线程之间的传值，必须通过主内存来来完成，所以这种JMM结构就会给我们带来一些：可见性、原子性、有序性的问题。
+
+
+⚫java提供的并发编程包
+java.unit.concurrent
+java.unit.concurrent.automic
+java.unit.concurrent.locks
+
+
+⚫谈谈volatile关键字
+volatile一种轻量级的同步机制，可以保证可见性，和顺序性，不能保证原子性，
+可见性就是当2个线程同时执行时，一个线程改变一个变量的值，会把这个变量值刷到主内存中，然后通知其他线程，那么其他线程收到通知，就会去主内存中拿到最新的值，底层是通过MESI缓存一致性协议来保证可见性的，
+顺序性就是程序执行时，jvm会对代码进行优化，在不影响程序的情况下，会改变代码的执行顺序，那么在多线程执行时，这种优化就会带来问题，被volatile修饰的关键字，是通过内存屏障，在关键字前面，和后面添加一层屏障，来保证程序执行的顺序的，
+内存屏障另外一个作用是强制刷出各种CPU的缓存数据，因此任何CPU上的线程都能读到这些数据的最新版本
+不能保证原子性，是因为一行代码，在内存中对应很多条指令，执行这些指令时，cpu会切换线程，并不能保证原子性。我们可以通过java.unit.concurrent.automic包中的类 来保证原子性
+
+
+⚫谈谈CAS
+AtomicInteger保证原子性，原理就是CAS
+CAS是一种自旋锁，就是比较并交换，这种锁的底层原理就是调用unsafe类中的方法，unsafe类中的方法都是由native修饰的方法，native修饰的方法就是访问底层操作系统中用c语言编写的方法，
+那么在执行cas操作时，其实就是调用底层c语言实现的汇编指令，这种指令执行是连续的，执行过程中不允许被中断，是原子指令，所以可以保证原子性
+缺点：
+	cas失败，会一直重试。导致cpu开销很大。
+	会出现ABA的问题
+	只能对一个变量进行原子性操作。多变量只能用锁
+
+	
+⚫如何解决ABA的问题
+解决ABA的问题可以使用java.unit.concurrent.automic包中带有时间搓的原子类，例如AtomicStampedReference
+
+
+⚫ArraryList和CopyOnWriteArrayList的区别
+ArraryList是线程不安全的集合类，在并发编程时可能报错：ConcurrentModificationException，而CopyOnWriteArrayList是juc中线程安全的集合类，底层利用读写分离的思想，
+在写时把原来的数组复制一份，然后长度+1，把新添加的元素放在数组最后，同时添加过程中采用ReentrantLock保证多线程添加时，只有一个线程添加成功，添加成功后会放入原来的数据
+，并且该数组由volatile修饰，保证可见性，修改了该数组，其他线程可以获取到最新的数组，在数组添加过程其他线程可以并发读取原来的数组，不需要加锁，所以CopyOnWrite容器也是一种读写分离的思想。
+
+
+⚫常见的阻塞队列有哪些？有什么特点？
+有界队列：
+	ArrayBlockingQueue 由数组结构构成的有界阻塞队列
+	LinkedBlockingQueue 由链表结构构成的有界（但默认值为Integer.MAX_VALUE）阻塞队列
+	SynchronousQueue 不存储元素的阻塞队列，即单个元素的队列
+无界队列：
+	PriorityBlockingQueue 支持优先级排序的无界阻塞队列
+	DelayQueue 使用优先级队列实现的延迟无界阻塞队列
+队列操作：
+方法类型	抛出异常	返回布尔	阻塞		超时
+插入		add(E e) 	offer(E e) 	put(E e) 	offer(E e,Time,TimeUnit)
+取出		remove() 	poll() 		take() 		poll(Time,TimeUnit)
+队首		element() 	peek() 		无			无
+
+
+⚫java锁升级的过程
+1.首先当前线程执行同步代码时，先判断对象锁的状态是否是01，然后在判断是否是偏向锁状态，如果是0，代表无锁，那么线程a会把线程id放入对象头的markword中，并把是否偏向锁的状态改成1，然后执行同步代码，不需要任何开销
+2.如果是1代表是偏向锁，首先会判断markword中的线程id是不是自己线程的id，如果是那就继续执行，如果不是说明该对象被其他线程锁住，那么这个时候会产生锁的竞争，当前线程会cas操作来替换对象头的线程id。
+3.拥有的该对象的锁，如果被竞争那么会在全局停顿点，就是没有任何指令执行时（线程暂停时），判断当前线程是否存活。如果不存活，那么撤销偏向锁。其他线程根据第一步来获取锁
+4.如果存活那么会撤销偏向锁，并在栈帧中创建一个空间，这个空间叫记录锁，会把对象头MarkWord信息复制到栈帧中，将MarkWord中指针指向栈帧中的地址，然后当前线程也会将对象的MarkWord拷贝到当前线程的栈帧中，用cas操作来把MarkWord中的信息替换成记录锁的栈帧地址。
+5.如果替换成功了，然后把对象头的锁的标志改成00，升级位轻量级锁。
+6.如果替换没成功，自旋超过一定次数，就会升级位重量级锁，创建一个monitor对象。然后把MarkWord中的指针改成monitor对象的地址。同时monitor对象中有一个owner，存储的是，拥有当前锁的线程信息，然后把当前线程放入monitor对象中的等待池WaitSet
+7.把对象头中的锁标志改成10（如果由第三个线程来竞争锁，这个时候也会升级为重量级锁。即使自旋次数不多，也会升级）
+
+
+
+⚫锁升级的相关问题
+1.锁只能升级，不能降级，偏向锁可以撤销成无锁状态
+2.升级为重量级锁条件2种：
+	当前只有一个等待线程b，则该线程将通过自旋进行等待。但是当自旋超过一定的次数时，轻量级锁便会升级为重量级锁；
+	当一个线程已持有锁，另一个线程在自旋，而此时又有第三个线程来访时，轻量级锁也会升级为重量级锁。
+3.synchronized底层就是通过monitor指令来实现同步的。monitor是底层用C语言实现的原子指令的对象
+4.自适应自旋锁：在同一锁上，根据你上一次获取锁的自选次数来自动增减自旋次数，更加智能一些
+
+
+⚫锁分级的原因
+在jdk1.6引入偏向锁和轻量级锁，就是为了优化锁的执行效率，因为重量级锁会导致线程阻塞，多线程时严重影响执行效率。并且在多线程执行时，cpu要进行线程的切换，挂起，唤醒等操作，十分损耗性能，效率低下
+
+
+⚫锁的分类
+悲观锁思想：synchronized和ReentrantLock
+乐观锁思想：CAS
+公平锁：ReentrantLock ，
+非公平锁：synchronized和ReentrantLock，性能比公平锁更好
+读写锁(共享锁/独占锁)：ReentrantReadWriteLock
+可重入锁/递归锁：synchronized和ReentrantLock
+自旋锁：CAS
+独占锁(互斥锁)：synchronized和ReentrantLock
+共享锁:ReentrantLock
+
+
+
+⚫说说什么是AQS？
+文章详解：https://juejin.cn/post/6844903997438951437
+AQS全称AbstractQueuedSynchronizer，即抽象的队列同步器，是一种用来构建锁和同步器的框架（类）。
+基于AQS的同步器
+ReentrantLock
+Semaphore
+CountDownLatch
+ReentrantReadWriteLock
+SynchronusQueue
+FutureTask
+
+
+
+⚫ReentrantLock底层原理？
+ReentrantLock类种有三个静态内部类Sync、NonfairSync、FairSync，Sync继承了AbstractQueuedSynchronizer（AQS），NonfairSync和FairSync继承Sync，当我们使用Lock.lock()方法时默认使用的都是非公平锁中的lock方法。
+首先我们先来说一下AQS的结构，有两个静态内部类:Node和ConditionObject，我们Lock.lock()和unlock()就是基于以Node节点的双向链表结构，实现的同步队列。队列遵循先进先出的原则
+然后我们来说一下Lock.lock()的底层实现逻辑：
+	1. 通过cas的方式去获取共享资源state(AQS中volatile修饰的全局变量),尝试去把state设置成1，如果成功了，说明获取锁成功。并记录下来当前独占的线程是哪个线程。(AQS中私有的线程对象exclusiveOwnerThread)
+	2. 如果设置失败了，执行acquire(1)方法，该方法中有一个判断，判断中有三个方法
+		2.1 方法1：tryAcquire(arg) 获取当前线程，和state状态，尝试再去获取锁，state != 0,那么判断当前线程是否等于已经占有锁的线程，如果是，那么就是可重入锁，把state的值再+1，如果当前方法返回失败，那么获取锁失败
+		2.2 方法2：addWaiter(Node.EXCLUSIVE)：把当前线程以独占模式封装到Node节点中，并把该节点通过case方式，加入同步队列的队尾，
+			如果当前队列为空，那么执行方法enq()：以cas方式创建一个头节点，并以cas方式把当前节点放在头节点的后面，该方法会返回当前线程的node节点
+		2.3 方法3：acquireQueued(addWaiter(Node.EXCLUSIVE), arg)) ，通过一个无线循环再次尝试获取锁，首先判断前节点是不是头节点，如果是，并且tryAcquire(arg) 尝试获取到了锁，那么把头节点出队，并置空（等待被GC），然后把当前节点作为新的头节点。
+			2.3.1 如果前节点不是头节点。或者没有获取到锁，
+			2.3.2 那么执行方法：shouldParkAfterFailedAcquire(p, node) 判断前节点waitStatus状态，如果 =SIGNAL，返回true，如果>0说明前节点被取消,那么就过滤掉所有被取消的前驱节点，如果<-1 把前驱节点设置为SIGNAL
+			2.3.3 如果上个方法返回false那么就行下一次循环，如果是true那么执行parkAndCheckInterrupt()，把当前线程阻塞，并返回中断标志，并清除中断标志。先把中断请求记录下来，等获取到锁以后再重新去中断该线程
+			2.3.4 在这期间如果报错，会把当前节点的waitStatus设置成取消状态
+				AQS 为其定义了一个变量 waitStatus，根据这个变量值对相应节点进行相关的操作，waitStatus状态分为四种：
+				cancelled(1)：节点已取消、
+				signal(-1)：前节点为状态为SIGNAL，释放锁才会唤醒下一个节点、
+				condition(-2)：表示该线程在condition队列中阻塞，
+				propagate(-3)：该线程以及后续线程进行无条件传播（CountDownLatch中有使用）共享模式下
+
+Lock.lock(true)的区别是,会先判断是否需要排队，如果头节点=尾节点，或者 头节点!=尾节 并且 头节点下一个节点不为空时，当前线程=即将执行节点的线程，说明不需要排队，后面逻辑一致
+Lock.unlock()的底层实现逻辑：先判断持有锁的线程是不是当前线程，如果不是抛出异常，如果是把state减一。并把当前持有独占锁的线程对象置空，然后唤醒下一个不是取消状态的节点
+备注：队列中的第一个节点是不参与排队的，它持有着同步状态，head 结点为虚结点，它只代表当前有线程占用了state，至于占用state的是哪个线程，其实是调用了上文的setExclusiveOwnerThread(current)
+
+通过以上原理我们也可以基于AQS的原理自定义实现锁，例如我们可以实现一个不可重入的互斥锁，自己创建一个类。在该类中创建一个静态内部类实现AQS，重写AQS的方法，
+
+
+⚫synchronized和lock的区别？
+底层原理：synchronized底层使用的是monitor指令，并非java代码实现的锁，而ReentrantLock底层原理是AQS，
+使用方法：synchronized不需要手动解锁，只能程序结束或者抛异常，才会解锁，ReentrantLock必须手动释放锁
+是否可中断：synchronized不可被中断，ReentrantLock可以使用tryLock(long time, TimeUnit unit)，Lock.lockInterruptibly()中断。Condition.await()也可以
+是否是公平：synchronized是不公平锁。ReentrantLock通过传入true、false选择是否公平锁
+绑定多个条件：synchronized只能随机唤醒，ReentrantLock可以通过Condition精确唤醒
+
+
+
+⚫为什么使用线程池，线程池的优点是什么？
+使用线程池，通过线程的复用，可省去线程频繁创建和销毁的时间，节省系统资源，提高响应速度，并且可以控制线程数量，合理利用好线程资源
+
+
+⚫都有哪些常见的线程池？
+newFixedThreadPool：是一个可以指定核心线程数的定长线程池。底层使用的是LinkedBlockingQueue，该阻塞队列的大小是Integer.MAX_VALUE 大概21个亿，会导致OOM，所以不建议使用
+newSingleThreadPool：该线程池中，只有一个线程，底层同上
+newCachedThreadPool：该线程池是一个可变长的线程池，遇强则强，但是该线程池的核心线程数是Integer.MAX_VALUE，也不建议使用
+ThreadPoolExecutor：推荐使用
+
+
+⚫ThreadPoolExecutor线程池工作原理：
+1.首先该线程池有七个参数：核心线程数、最大线程数、多余线程的存活时间、存活时间单位、任务队列、线程池工厂、拒绝策略
+2.工作流程：当有任务执行时，先判断核心线程数是否满了，没满创建核心线程数来执行任务，如果满了，那么进入任务队列中等待，如果队列满了，那么创建非核心线程来执行任务，直到达到最大线程数，
+如果继续有任务过来，就会根据拒绝策略执行响应的操作。如果当前线程空闲了，那么会在一定的时间内被停掉，最后只剩下核心线程数存活。
+3.拒绝策略：
+	AbortPolicy：默认策略，直接抛出异常RejectedExecutionException
+	CallerRunsPolicy：既不会抛出异常，也不会终止任务，而是将任务返回给调用者，从而降低新任务的流量
+	DiscardOldestPolicy：抛弃队列中等待最后的任务，然后把新任务添加到队列中
+	DiscardPolicy：丢弃该任务。不做任何处理
+4.核心线程数的计算：参考公式：CPU核数 /（1 - 阻塞系数 ） 阻塞系数在 0.8~0.9 之间
+
+自定义线程池：
+	自定义拒绝策略：实现接口RejectedExecutionHandle
+	自定义线程工厂：实现接口ThreadFactory  重写newThread方法 ，可自定义线程名称  -----------简历
+
+
+⚫生产中如何定位死锁？
+jps指令： 
+jps -l 可以查看运行的Java进程pid 。
+jstack pid 可以查看某个Java进程的堆栈信息，同时分析出死锁。
+
+
+⚫三种可以让线程等待唤醒的方式；
+Object类种的wait和notify方法，必须在同步块或同步方法里且成对出现使使用
+使用JUC包中Condition的await()方法让线程等待,使用signal()方法唤醒线程，配合ReentrantLock使用
+	Lock lock=new ReentrantLock();
+	Condition condition = lock.newCondition();
+lockSupport类可以阻塞当前线程以及唤醒指定被阻塞的线程，通过park()和unpark(thread)⽅法来实现阻塞和唤醒线程的操作
+
+
+⚫LockSupport有什么作用？
+是一种线程阻塞工具类，所有方法都是静态方法，可以让线程在任意位置阻塞。并且也可以提前唤醒，
+底层使用的unsafe类种的native修饰的方法，可以保证线程安全。
+LockSupport通过使用许可证的概念Permit，来解决线程的阻塞和唤醒，
+park()就是把Permit =0 将线程阻塞，unpark是将0变成1，把线程唤醒。但是多次调用，值仍为1，不会累加
+LockSupport不用持有锁块，不用加锁，程序性能好
+
+
+⚫线程之间通信的问题
+https://www.cnblogs.com/xiaoxi/p/7581899.html
+1.sleep 和 wait 有什么区别？
+wait必须搭配synchronize一起使用，而sleep 不需要；
+进入wait状态的线程能够被notify和notifyAll线程唤醒，而sleep状态的线程不能被notify方法唤醒；
+wait通常有条件地执行，线程会一直处于wait状态，直到某个条件变为真，但是sleep仅仅让你的线程进入睡眠状态；
+wait方法会释放对象锁，但sleep方法不会。
+*在调用wait方法之后，线程会变为WATING状态，而调用sleep方法之后，线程会变为TIMED_WAITING状态。
+
+2..wait能不能在static方法中使用？为什么？
+因为wait方法是实例方法（非static方法），因此不能在static中使用
+
+3.notify是随机唤醒线程的么？
+不是。notify是顺序唤醒线程的，底层使用一个队列存储，而是“先进先出”的顺序唤醒!
+
+
+⚫interrupted与isInterrupted区别
+public static boolean interrupted() { 
+    return currentThread().isInterrupted(true); 
+} // 因为是静态方法，只能作用于当前线程，并且会清除线程中断标志
+public boolean isInterrupted() { 
+    return isInterrupted(false); 
+} // 可以指定某个线程，让其终止。但是不会清除中断标志。
+
+两者底层调用的都是：private native boolean isInterrupted( boolean ClearInterrupted);
+
+
+⚫什么状态下的线程会被中断？
+Thread.join(), Thread.sleep(), Object.wait(), Condition.await()，tryLock(long time, TimeUnit unit)，Lock.lockInterruptibly()：方法中，判断中断状态直接抛出异常
+以下情况不会被中断：synchronize 、Lock.lock()、LockSupport.park()：被中断后，不会被阻塞;
+
+
+⚫为什么不推荐使用stop中断线程？
+并且JDK源码中也已经将其置为了@Deprecated，stop方法进行中断线程本质上是不安全的，它会直接释放掉本线程所持有的所有资源
+
+
+⚫多线程的三种实现？
+1.继承Thread类，重写该类的run()方法。
+2.实现Runnable接口，并重写该接口的run()方法，该run()方法同样是线程执行体，创建Runnable实现类的实例，并以此实例作为Thread类的target来创建Thread对象，该Thread对象才是真正的线程对象。
+	    Runnable myRunnable = new MyRunnable("A"); // 创建一个Runnable实现类的对象
+        Thread thread1 = new Thread(myRunnable)  // 将myRunnable作为Thread target创建新的线程
+		thread1.start(); // 调用start()方法使得线程进入就绪状态、
+3.使用Callable和Future接口创建线程：创建Callable接口的实现类，并实现call()方法。并使用FutureTask类来包装Callable实现类的对象，且以此FutureTask对象作为Thread对象的target来创建线程
+	    Callable<Integer> myCallable = new MyCallable();    // 创建MyCallable对象
+        FutureTask<Integer> ft = new FutureTask<Integer>(myCallable); //使用FutureTask来包装MyCallable对象
+        Thread thread = new Thread(ft);  //FutureTask对象作为Thread对象的target创建新的线程
+        thread.start();  //线程进入到就绪状态
+		
+		
+⚫StampedLock的特点
+StampedLock类，在JDK1.8时引入，是对读写锁ReentrantReadWriteLock的增强，该类提供了一些功能，优化了读锁、写锁的访问，同时使读写锁之间可以互相转换，更细粒度控制并发。
+1.所有获取锁的方法，都返回一个邮戳（Stamp），Stamp为0表示获取失败，其余都表示成功；
+2.所有释放锁的方法，都需要一个邮戳（Stamp），这个Stamp必须是和成功获取锁时得到的Stamp一致；
+3.StampedLock是不可重入的；（如果一个线程已经持有了写锁，再去获取写锁的话就会造成死锁）
+4.StampedLock有三种访问模式：
+	①Reading（读模式）：功能和ReentrantReadWriteLock的读锁类似
+	②Writing（写模式）：功能和ReentrantReadWriteLock的写锁类似
+	③Optimistic reading（乐观读模式）：这是一种优化的读模式。
+5.StampedLock支持读锁和写锁的相互转换，我们知道RRW中，当线程获取到写锁后，可以降级为读锁，但是读锁是不能直接升级为写锁的。StampedLock提供了读锁和写锁相互转换的功能，使得该类支持更多的应用场景。
+6.无论写锁还是读锁，都不支持Conditon等待
