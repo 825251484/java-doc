@@ -1,0 +1,178 @@
+⚫主从复制
+原理：主服务器的binlog记录所有数据的增删改，并将binlog写入磁盘，从节点通过io线程，读取主服务器的增量binlog，并将binlog拷贝到从服务器的relaylog中
+然后从服务器的sql线程会执行relaylog中的语句，进行数据恢复，同步。
+
+⚫binlog三种模式：set binlog_format=STATEMENT;
+1.statement level模式：
+	优点：不需要记录所有更新的数据行，只需要记录更新sql语句，节约空间，减少了日志量，节约io，提升性能。
+	缺点：对于一些特定的语句或者函数，可能导致主从的数据不一致，比如使用uuid生成的主键就会有问题
+2.row level 模式（默认）
+	优点：记录每一条数据的变化，
+	缺点：日志量比较大
+3.mixed：两种模式结合，mysql会根据sql语句选择不同的模式
+
+
+⚫查看binlog命令
+show binlog events
+mysqlbinlog --base64-output=decode-rows -v -v mysql-1 bin.000058 > binlog
+
+
+⚫主从复制的实现：
+区别：原理一致，只是配置不一样，binlog日志存储行是不同。
+1.基于binlog实现：
+	log_bin=mysql-bin #启动二进制文件
+	server_id=132 #服务器ID
+2.基于GTID实现：就是全局事务标识符（Global Transaction Identifiers），基于事务的复制，只要在主主机上提交的所有事务也都提交到从站上，就保证两者之间的一致性
+gtid_mode=ON #开启GTID模式（必选）
+enforce-gtid-consistency=true #强制gtid一致性（必选）
+
+
+注意：对外，主服务器付责读写。从服务器只起到备份的作用，但是对内从服务器使用root用户也可以增删改
+
+
+⚫优化主从同步的延迟问题：
+没有任何办法可以保证数据百分之百同步成功，我们只能尽量的提高性能尽量减少延迟，提高主从复制的速度，提高io，降低延迟。
+1.从服务器落盘机制可以改为0，也就是每秒钟一落盘，不是每次提交事务的时候落盘，减少io次数，可以提高性能
+2。如果只有一台从服务器，那么这个从服务器不提供任何增删改查功能，只负责同步备份数据，那么同步数据会很快
+3.增加多台从服务器，从服务器可以读数据，分散压力，所以就诞生了读写分离
+
+判断主从延迟的方法：show slave status 进行查看， 比如可以看看Seconds_Behind_Master参数的值来判断，是否有发生主从延时。该值为零，是我们极为渴望看到的情况，表示主从复制状态正常
+
+
+
+⚫读写分离
+提高系统吞吐量。 一主多从。多从使用负载均衡
+
+⚫实现方案；
+1.mysql-proxy
+mysql官方提供的一个中间件，一直是测试版，不建议生产使用
+
+2.Atlas 阿特拉斯
+360公司开发基于mysql协议的中间件。在mysql-proxy基础上优化了很多，可以使用，2019之后不在更新
+
+3.mycat
+java开发，国产项目，文档中文，功能Atlas比更强大，可以做读写分离，分库分表
+Mycat核心概念
+	Schema：由它指定逻辑数据库（相当于MySQL的database数据库）
+	Table：逻辑表（相当于MySQL的table表）
+	DataNode：真正存储数据的物理节点，每一个数据库是一个DataNode
+	DataHost：存储节点所在的数据库主机（指定MySQL数据库的连接信息，就是一个mysql实例，一台mysql机器）
+	User：MyCat的用户（类似于MySQL的用户，支持多用户）
+配置mycat server.xml 配置用户信息  root用户， 只读用户
+配置schema.xml 配置：配置，数据库信息，逻辑表，数据节点，读写哪个库的配置，负载均衡策略，心跳检测等
+Balance参数设置：
+	1. balance="0", 不开启读写分离机制，所有读操作都发送到当前可用的 writeHost 上。
+	2. balance="1"，全部的 readHost 与 stand by writeHost 参与 select 语句的负载均衡，简单的说，当双主双从模式(M1->S1，M2->S2，并且 M1 与 M2 互为主备)，正常情况下，M2,S1,S2 都参与 select 语句的负载均衡。
+	3. balance="2"，所有读操作都随机的在 writeHost、readhost 上分发。
+	4. balance="3"，所有读请求随机的分发到 wiriterHost 对应的 readhost 执行，writerHost 不负担读 压力，
+WriteType参数设置：
+	1. writeType="0", 所有写操作发送到配置的第一个 writeHost，第一个挂了切到还生存的第二个writeHost
+	2. writeType="1"，所有写操作都随机的发送到配置的 writeHost，1.5 以后废弃不推荐。
+配置完，启动mycat，使用navicat连接mycat
+注意：只有在mycat配置文件中定义的表。才能创建，mycat才能使用 ，（逻辑表必须先在schema.xml中定义才能使用）
+
+
+
+⚫分库分表
+如果某个库或者某个表数据量非常庞大，上千万条，那么即使你使用读写分离，性能还是比较差，所以为了提高系统的吞吐量，我们可以使用分库分表，
+但是使用分库分表要慎重，因为影响非常大，以前的sql将无法使用，要全面改造。
+
+垂直分库：按照业务模块分库，订单，库存，商品
+垂直分表：垂直分表是基于数据表的列为依据切分的，是一种大表拆小表的模式。例如：一个order 表有很多字段，把长度较大且访问不频繁的字段，拆分出来创建一个单独的扩展表work_extend 进行存储。
+			拆分以后核心表大多是访问频率较高的字段，而且字段长度也都较短，可以加载更多数据到内存中，增加查询的命中率，减少磁盘IO，以此来提升数据库性能。
+			数据库还是存在单表数据量过大的问题，并未根本上解决，需要配合水平切分
+水平切分：水平切分将一张大数据量的表，切分成多个表结构相同，而每个表只占原表一部分数据，然后按不同的条件分散到多个数据库中。
+			假如一张order 表有2000万数据，水平切分后出来四个表， order_1 、order_2 、order_3 、order_4 ，每张表数据500万，以此类推
+库内分表：虽然将表拆分，但子表都还是在同一个数据库实例中，只是解决了单一表数据量过大的问题，但是拆分后的表还在同一台机器上，还在竞争同一个物理机的CPU、内存、网络IO
+
+⚫分库分表优缺点：
+优点：解决高并发时单库数据量过大的问题，提升系统稳定性和负载能力业务系统改造的工作量不是很大
+缺点：1.跨分片的事务一致性难以保证，2.跨库的join关联查询性能较差，3.扩容的难度和维护量较大，（拆分成几千张子表想想都恐怖）4.分库分表要慎重，因为影响非常大，以前的sql将无法使用，要全面改造。
+
+⚫数据分片规则：主流两种
+1.根据取值范围：按照时间区间或ID区间来切分，举个栗子：假如我们切分的是用户表，可以定义每个库的User表里只存100000条数据，第一个库userId 从1 ~ 9999，第二个库10000 ~ 19999，第三个库20000~29999..以此类推。
+	优点：
+		单表数据量是可控的
+		水平扩展简单只需增加节点即可，无需对其他分片的数据进行迁移
+		能快速定位要查询的数据在哪个库
+	缺点：
+		由于连续分片可能存在数据热点，如果按时间字段分片，有些分片存储最近时间段内的数据，可能
+		会被频繁的读写，而有些分片存储的历史数据，则很少被查询
+2.hash取模：hash取模mod（对hash结果取余数 (hash() mod N)）的切分方式比较常见，还拿User表举例，对数据库从0到N-1进行编号，对User表中userId 字段进行取模，得到余数i ， i=0 存第一个库， i=1 存第二个库， i=2 存第三个库....以此类推。
+	优点：
+	这样同一个用户的数据都会存在同一个库里，用userId 作为条件查询就很好定位了
+	数据分片相对比较均匀，不易出现某个库并发访问的问题
+	缺点：
+	但这种算法存在一些问题，当某一台机器宕机，本应该落在该数据库的请求就无法得到正确的处
+	理，这时宕掉的实例会被踢出集群，此时算法变成hash(userId) mod N-1，用户信息可能就不再在
+	同一个库中。
+
+
+⚫分库分表工具:
+sharding-jdbc（当当）：国产的，不需要安装中间件，和代码紧密结合  耦合度高，代码入侵，性能比较好
+TSharding（蘑菇街）
+Atlas（奇虎360）：分库分表比较弱
+Cobar（阿里巴巴）：macat前身，不维护了
+MyCAT（基于Cobar）：中间件，独立运行，需要独立运行。部署。代码入侵低，性能不如sharding-jdbc.
+Oceanus（58同城）
+Vitess（谷歌）
+
+
+⚫Sharding JDBC分库分表：
+Apache ShardingSphere(Incubator) 是一套开源的分布式数据库中间件解决方案组成的生态圈，它由
+Sharding-JDBC、Sharding-Proxy和Sharding-Sidecar（规划中）这3款相互独立，却又能够混合部署配
+合使用的产品组成。
+其中Sharding-Proxy中间件不如mycat。
+
+
+⚫分库分表实现：
+1.sharding-jdbc
+	java代码实现位置：
+	https://gitee.com/sublun/sharding-jdbc-test
+
+	// 配置 t_order 表规则。在实现业务增删改查时，都是通过逻辑表t_order来执行的。无需关注物理表（内部是，有一个sql分发查询不同库不同表，然后会把结果集合并返回）
+	TableRuleConfiguration orderTableRuleConfig = new TableRuleConfiguration("t_order","ds${0..1}.t_order${0..1}"); //t_order是逻辑表对应数据库t_order0，t_order1物理表，ds是数据源ds${0..1}表示ds1 ds2，
+	// 配置数据库表分片策略
+	orderTableRuleConfig.setDatabaseShardingStrategyConfig(new InlineShardingStrategyConfiguration("user_id", "ds${user_id % 2}")); //根据物理表中的用户id取模，设置分库规则
+	orderTableRuleConfig.setTableShardingStrategyConfig(new InlineShardingStrategyConfiguration("order_id", "t_order${order_id % 2}"));  //根据物理表中的order_id取模，设置分表规则
+	// 配置分片规则
+	ShardingRuleConfiguration shardingRuleConfig = new ShardingRuleConfiguration();
+	shardingRuleConfig.getTableRuleConfigs().add(orderTableRuleConfig);
+	// 创建数据源
+	DataSource dataSource = ShardingDataSourceFactory.createDataSource(dataSourceMap,shardingRuleConfig, new Properties());
+
+2.mycat
+	1.配置schema.xml
+		//hello是mycat的中间数据库，我们在hello中操作表，tb_user是实际物理表，将tb_user分库分表，分在三个节点中，前两个节点在132物理机，后一个节点在133物理机，
+		<schema name="hello" checkSQLschema="true" sqlMaxLimit="100">
+		<table name="tb_user" dataNode="dn1,dn2,dn3" primaryKey="user_id" rule="mod-long_user"/>  //rule是分片策略，id对应rule.xml中的规则
+		</schema>
+		
+		//三个数据库，前两个在132中，最有一个在134中
+		<dataNode name="dn1" dataHost="localhost1" database="db1" />
+		<dataNode name="dn2" dataHost="localhost1" database="db2" />
+		<dataNode name="dn3" dataHost="localhost2" database="db3" />
+		//设置主机，
+		<dataHost name="localhost1" maxCon="1000" minCon="10" balance="1" writeType="0" dbType="mysql" dbDriver="native" switchType="1" slaveThreshold="100">
+			<heartbeat>select user()</heartbeat>  //心跳检测
+			<writeHost host="hostM1" url="192.168.68.132:3306" user="root" password="root"/>  // mysql连接
+		</dataHost>
+		
+		<dataHost name="localhost2" maxCon="1000" minCon="10" balance="1" writeType="0" dbType="mysql" dbDriver="native" switchType="1" slaveThreshold="100">
+			<heartbeat>select user()</heartbeat>
+			<writeHost host="hostM2" url="192.168.68.134:3306" user="root" password="root"/>
+		</dataHost>
+	2.配置rule.xml
+		<tableRule name="mod-long_user">
+			<rule>
+				<columns>user_id</columns>
+				<algorithm>mod-long</algorithm> //根据user_id / 3取模规则分片
+			</rule>
+		</tableRule>
+		<function name="mod-long" class="io.mycat.route.function.PartitionByMod">
+			<!-- how many data nodes -->
+			<property name="count">3</property>  
+		</function>
+⚫
+⚫
+⚫
