@@ -1,0 +1,371 @@
+⚫什么是spring、springmvc
+Spring 是分层的企业级应用轻量级开源框架，可以降低企业级应用开发的复杂性，以 IoC 和 AOP为内核降低代码耦合度、简化开发。
+
+
+⚫Springmvc请求处理过程？
+1.用户发送请求，到前端处理器（DispatcherServlet的doDispatch方法），
+2.通过处理器映射器（HandlerMappering）获取到HandlerExecutionChain对象，这个对象中包含handler控制类和interceptorList拦截器数组，处理器映射器是根据配置文件中<bean>标签中bean属性，以及class属性的值查找到执行类的handle，
+3.然后DispatcherServlet调用处理器适配器（HandleAdapter）来处理handler，在hander处理的前后会执行拦截器的前置处理preHandle和后置处理postHandle
+4.执行完handle以后会返回一个ModelAndView对象，该对象包含modelmap和view，前端控制器把ModelAndView对象传给视图解析器（ViewSesolver），视图解析器根绝配置文件的前后缀找到物理视图文件，并解析返回逻辑视图
+5.前端处理器把数据渲染到view中并返回给前端
+
+
+
+
+⚫jdk动态代理的原理和CGLIB的原理，以及两者的区别
+JDK动态代理
+	使用jdk动态代理，首先被代理的类（目标类），要实现一个接口，然后JDK提供Proxy.newProxyInstance方法来创建代理类，并创建一个类实现InvocationHandler中的invoke方法，在该方法中实现增强功能。
+	底层原理：newProxyInstance方法中有三个参数，类加载器、接口数组、InvocationHandler的实现类，jdk会根据类加载器和接口去缓存中查找代理，如果有代理类就不会创建了，
+	如果没有通过ProxyClassFactory工厂类根据接口信息和生成规则创建一个byte数组，根据该数组生成代理类，代理类继承了Proxy并实现了接口，代理类中有一些默认方法：equals、hashCode、toString，剩下就是我们接口中的方法，
+	代理类的构造器参数是我们InvocationHandler的实现类，初始化代理类以后，就可以通过InvocationHandler的实现类的实例来访问我们增强类的方法。（代理类：com.sun.proxy.$Proxy1）jdk1.8以后得到优化。性能提高
+CGLIB动态代理
+	代理类要继承目标类，通过Enhancer去创建代理对象，通过实现MethodInterceptor重写intercept()方法来实现增强功能，该方法四个参数：1.代理对象、2.目标对象的方法、3.参数、4.代理对象的方法，
+	代理类继承了目标类，并实现了Factory(回调功能)， 重写了目标类中得方法。当执行被代理方法时会访问代理类中重写的方法，该方法中会调用MyMethodInterceptor类中，我们实现得方法intercept，并执行增强功能，
+	同时会执行methodProxy.invokeSuper(proxy, arg);调用父类的方法，也就是目标类的方法
+	底层原理：底层使用ASM字节码操作，根据目标类生成代理类的字节码，并通过类加载器把代理类加载到JVM中，同时CGLIB通过fastcalss机制为目标类和代理类个生成一个class，这个class存存储的是方法的索引，每个方法对应一个index，
+	这样当我去调用方法时，就不用反射获取类中方法了，直接通过索引获得方法，所以调用效率比jdk反射调用效率高,但是cglib会生成多个代理文件，占用更多的内存，空间换时间
+	
+备注：
+	FastClass是一个抽象类, CGLib在运行时通过FastClass内的Generator这个内部类将其子类动态生成出来, 然后再利用ClassLoader将生成的子类加载进JVM里面去.
+	FastClass：的原理简单来说就是：为代理类和被代理类各生成一个 Class，这个 Class 会为代理类或被代理类的方法分配一个 index，根据这个 index，FastClass 就可以直接定位要调用的方法直接进行调用，这样省去了反射调用，所以调用效率比 JDK 动态代理通过反射调用高。
+	我们知道 Method 是基于反射来调用方法的，但是反射的效率总是要低于直接的方法调用的，而 MethodProxy 基于 FastClass 机制对方法直接下标索引，并通过索引直接定位和调用方法，是一点性能上的提升。
+	ASM：只是一个字节码操作的工具
+	CGLIB是可以代理protect方法的，但是springaop中规定是无法代理protect方法
+
+区别：
+	1.JDK反射：通过反射来调用代理方法
+	2.CGLIB 通过FastClass 机制查找方法，并且通过动态生成子类的全新方式调用。，采用ASM直接操作字节码生成代理类
+	3.不能被CGLIB代理: final修饰的类和方法、使用private类型的方法、使用包访问权限
+	4.jdk必须实现接口才能被代理
+
+Spring Boot 2.0 开始代理类默认的实现方式是 cglib，如果想使用 JDK 动态代理，可以通过 spring.aop.proxy-target-class=false 来实现。
+CGLIB 代理方法，想要对方法的返回值进行特殊处理，可以使用 CallbackFilter。	
+
+两者区别：https://zhuanlan.zhihu.com/p/150287791
+
+
+
+⚫为什么使用CGLIB代理时，在目标类中调用内部方法时，会走代理，为什么JDK代理不会走？
+jdk动态代理是通过反射调用方法，既Method.invoke方式调用。也就是获取目标类，所以this就是目标类，
+cglib是当调用方法时执行methodProxy.invokeSuper(proxy, arg); proxy是代理类，所以this就是代理类。为什么this是代理类，源于底层FastClass 机制
+cglib通过FastClass机制调用方法，FastClass是为代理类和目标类各生成一个 Class，这个 Class会为代理类和目标类的方法分配一个index，也可以叫索引，
+根据这个index在calss文件中快速的找到执行的方法，这也是cglib更高效的原因。但是占用更多的内存
+那么执行方法时methodProxy.invokeSuper(proxy, arg)，会发生一下事情，
+    public Object invokeSuper(Object obj, Object[] args) throws Throwable {
+        try {
+            this.init();
+            MethodProxy.FastClassInfo fci = this.fastClassInfo;
+            return fci.f2.invoke(fci.i2, obj, args);
+        } catch (InvocationTargetException var4) {
+            throw var4.getTargetException();
+        }
+    }
+obj是代理类，args是参数，fci.f2就是上面生成的代理类的class，fci.i2就是class中的index，那么调用方法就会执行obj中对应的calss的对应index的方法，
+每次执行方法都是如此，就是因为这种机制的原因
+
+
+⚫为什么jdk动态代理只能代理接口的实现类？
+因为代理类继承了proxy类，java不能多继承，所以只能通过实现接口的方式调用目标类中的方法
+
+
+
+⚫spring AOP底层原理
+1. AspectJAwareAdvisorAutoProxyCreator 继承 AbstractAutoProxyCreator
+2. AbstractAutoProxyCreator实现了BeanPostProcessor
+3. AbstractAutoProxyCreator类中postProcessAfterInitialization方法，在执行这个方法之前，bean已经完成初始化，完成了依赖注入后，才会执行
+4. postProcessAfterInitialization() 
+	-> wrapIfNecessary() 
+		-> 1.getAvicesAndAdvisorsForBean() ->  // 查找对代理类相关的advisor对象集合,获取该bean需要增强的advices和advisor
+		   2.createProxy() // 创建ProxyFactory代理工厂，并设置一些参数，把上面获取的增强类集合放入工厂中，并且会判断proxy-target-class属性，默认是false，如果是true就会使用CGLIB代理，来创建代理对象
+				-> ProxyFactory#getProxy(getProxyClassLoader()); // 通过代理工厂创建代理类  【getProexy{Return createAopProxy().getProxy(classLoader)}】
+					-> ProxyCreatorSupport#createAopProxy() // 该方法中会获取AopProxyFactory类，通过该类的子类DefaultAopProxyFactory#createAopProxy()去创建代理类
+						-> 执行 new JdkDynamicAopProxy() 或者 new ObjenesisCglibAopProxy(config) // 这两个类继承了AopProxy 创建代理类以后通过 AopProxy#getProxy()来获取代理对象
+						// 方法中默认调用new JdkDynamicAopProxy() ，如果目标类是接口 || 或者是Proxy的子类使用JDK代理（JDK代理需要继承Proxy）。以上判断均不符合且proxy-target-class=true，则使用CGLIB代理
+						// JdkDynamicAopProxy通过执行Proxy.newProxyInstance创建代理类，JdkDynamicAopProxy实现了InvocationHandler
+						
+
+
+
+⚫spring是怎么解决循环依赖的？
+例如A -> B -> A 
+1.doCreateBean(A) -> 
+	2.addSingletonFactory(A, () -> getEarlyBeanReference(beanName, mbd, bean)) ①从系统内存中获取实例化完成的A对象，放入二级缓存  ②从二级缓存拿出来。放入三级缓存，并删除二级缓存 ->
+		3.populateBean(A, mbd, instanceWrapper);  ->
+			4.autowireByName() || autowireByType() ->
+				5.getBean(B) ->
+					6.doCreateBean(B) ->
+						7.addSingletonFactory(B, () -> getEarlyBeanReference(B, mbd, bean)) -》
+							8.populateBean(B, mbd, instanceWrapper);  ->
+								9.autowireByName() || autowireByType() -> 
+									10.getBean(A) ->
+										11.doCreateBean(A) -> getSingleton(A) -> 从三级缓存BeanFactory中获取到A，并移动到二级缓存，删除三级缓存（第2步放入的三级缓存）
+总结：循环依赖是指两个或者多个类之间互相之间产生依赖，那么spring框架对循环依赖有一定的解决方案，但是不是所有循环依赖都能解决，spring可以解决字段注入的和setter注入产生的循环依赖，
+对于构造器注入的循环依赖。spring底层是无法解决的，只能通过其他手动解决，例如@lazy懒加载、或者@PostConstruct，但是产生循环依赖有可能是设计上的缺陷导致循环依赖，所以最好还是先在设计查找原因。
+那么spring解决循环依赖是通过三个map，我们经常叫三级缓存来解决的循环依赖，map中key存储的都是beanName，value存储的分别为：
+一级缓存：存储的是已经创建好的bean，是对外暴露的bean，并且getBean就是先从一级缓存中查找，
+二级缓存：存储的是早期暴露的bean，既bean已经完成实例化，但是还没有初始化，还没有填充属性，在spring内部使用
+三级缓存：存储的是ObjectFactory，该工厂可以通过getObject()来获取bean实例，或者获取bean的代理对象。
+当getBean(A)时，首先实例化A对象，然后把实例化的A对象也就是早期暴露的A，用工厂封装起来，放入三级缓存（也就是说经过构造器创建出来的A对象，放入三级缓存，有可能返回的是代理对象）
+然后A对象开始填充属性。发现A对象依赖B，然后获取B对象，开始getBean(B)，在B对象属性填充时发现依赖A对象。这个时候去三级缓存中查找A对象对应的工厂实例，通过工厂实例getObject()获取对象A，然后把A从三级缓存中移到二级缓存
+B对象获取到A后，完成自动注入。完成初始化对象。完成创建，并把B对象放入一级缓存。并返回到Object B = getBean(B)，把结果B放回给A对象，并注入到A对象中，A完成属性注入，完后初始化，完成创建，并从二级缓存移到一级缓存
+
+
+
+⚫为什么使用三级缓存。不使用二级缓存？
+文章：https://juejin.cn/post/6882266649509298189
+https://zhuanlan.zhihu.com/p/347984100
+首先二级缓存就可以解决spring循环依赖的问提，
+为了解决循环依赖时提前创建代理对象的问题，采用三级缓存延迟代理对象得创建，因为spring的设计之初就是在spring生命周期的最后也就是初始化结束之后，对bean进行增强产生代理对象，
+但是产生循环依赖后，要提前创建代理对象，那么就违背了spring得设计原则，所以spring采用三级缓存存储被代理得对象，当使用得时候通过singletonFactory.getObject()直接获取代理对象，就是为了延迟获取代理对象。不违背spring设计原则。
+如果没有代理，那么singletonFactory.getObject()获取就是原始得bean
+
+
+
+⚫关于使用@Async出现依赖循环的问题原理是什么？该怎么解决？
+文章：https://blog.csdn.net/f641385712/article/details/92797058
+
+
+
+⚫spring底层类的功能
+BeanDefinitionRegistry： Spring配置文件中每一个<bean>节点元素在Spring容器里都通过一个BeanDefinition对象表示，它描述了Bean的配置信息。而BeanDefinitionRegistry接口提供了向容器手工注册BeanDefinition对象的方法。
+BeanFactory 接口位于类结构树的顶端 ，它最主要的方法就是 getBean(String beanName)，该方法从容器中返回特定名称的 Bean，BeanFactory 的功能通过其他的接口得到不断扩展：
+ListableBeanFactory：该接口继承自 BeanFactory，定义了访问容器中Bean基本信息的若干方法，如查看Bean的个数、获取某一类型Bean的配置名、查看容器中是否包括某一Bean等方法；
+DefaultListableBeanFactory：DefaultListableBeanFactory 是一个完整的、功能成熟的 IoC 容器，继承了基本所有类的方法，ListableBeanFactory，BeanDefinitionRegistry
+XmlBeanFactory：因为 XmlBeanFactory 中的大部分功能实际上在 DefaultListableBeanFactory 中就已经提供好了，XmlBeanFactory 只是对 IO 流的读取做了一些定制而已。
+HierarchicalBeanFactory：父子级联IoC容器的接口，子容器可以通过接口方法访问父容器； 通过HierarchicalBeanFactory接口，Spring的IoC容器可以建立父子层级关联的容器体系，子容器可以访问父容器中的Bean，但父容器不能访问子容器的Bean。Spring使用父子容器实现了很多功能，比如在SpringMVC中，展现层Bean位于一个子容器中，而业务层和持久层的Bean位于父容器中。这样，展现层Bean就可以引用业务层和持久层的Bean，而业务层和持久层的Bean则看不到展现层的Bean。
+ConfigurableBeanFactory：是一个重要的接口，增强了IoC容器的可定制性，它定义了设置类装载器、属性编辑器、容器初始化后置处理器等方法；
+AutowireCapableBeanFactory：定义了将容器中的 Bean 按某种规则（如按名字匹配、按类型匹配等）进行自动装配的方法；
+SingletonBeanRegistry：定义了允许在运行期间向容器注册单实例 Bean 的方法；
+
+
+⚫spring MVC启动之IOC
+文章：https://zhuanlan.zhihu.com/p/136338306
+ServletContextListener是Servlet API中一个接口
+ContextLoaderListener继承了ContextLoader并实现了ServletContextListener的contextInitialized()方法，
+web容器启动之后加载web.xml，这时候会在Servlet容器启动时，会发布ServletContextEvent事件，该事件由ServletContextListener来处理，由于ContextLoaderListener实现了contextInitialized()，所以最终ContextLoaderListener来处理，
+public void contextInitialized(ServletContextEvent event) {
+		initWebApplicationContext(event.getServletContext());
+	}
+因为initWebApplicationContext是ContextLoader类中的方法，所以ContextLoader付责创建springioc容器并把容器放入ServletContext中，
+然后再初始化DispatchServlet，DispatchServlet负责请求分发，起到控制器的作用
+
+
+⚫spring IOC流程
+1.web容器启动之后加载web.xml，此时加载ContextLoaderListener监听器（实现了ServletContextListener接口中的contextInitialized()，会监听servlet的启动），
+	ContextLoaderListener监听器会在web容器启动的时候，触发contextInitialized()方法
+	public void contextInitialized(ServletContextEvent event) {
+		initWebApplicationContext(event.getServletContext());
+	}
+2.initWebApplicationContext()方法，该方法负责创建Spring容器（DefaultListableBeanFactory）
+	initWebApplicationContext(ServletContext servletContext) {
+		createWebApplicationContext(servletContext); // 创建 Spring 容器
+		configureAndRefreshWebApplicationContext(cwac, servletContext); //该方法中调用最终初始化Bean的refresh()方法，Spring容器初始化单例Bean的实例，
+	}
+	执行AbstractApplicationContext # refresh()方法（控制反转）
+	1. prepareRefresh(); // 1、准备工作包括设置启动时间，是否激活标志位，初始化属性源（property source）配置
+	2. ConfigurableListableBeanFactory beanFactory = obtainFreshBeanFactory(); // 创建DefaultListableBeanFactory（实现ConfigurableListableBeanFactory），加载并注册BeanDefinition
+	3. prepareBeanFactory(beanFactory); // 对ConfigurableListableBeanFactory容器进行配置特性：类加载器，事件处理器等
+	4. postProcessBeanFactory(beanFactory); 目前是个空方法，如果有需要由子类进行扩展
+	5. invokeBeanFactoryPostProcessors(beanFactory); //实例化所有的 BeanFactoryPostProcessor  在spring环境中去执行已经被注册的 BeanFactoryPostProcessors，执行扫描Bean,并且注册BeanDefinition，它的作用对BeanDefinition做一些处理。
+	6. registerBeanPostProcessors(beanFactory); //主要作用是将BeanPostProcessor注册到容器(BeanFactory)中，BeanPostProcessor作用是通过aop方式对bean做一些前置后置处理，这里只是注册，并不会执行
+	7. initMessageSource(); //为上下文初始化Message源，即不同的语言的消息体，国际化处理
+	8. initApplicationEventMulticaster(); // 初始化应用消息广播器，并放入 applicationEventMulticaster
+	9. onRefresh(); // 留给子类初始化其他的Bean
+	10. registerListeners(); // 1.在所有注册的bean中查找监听器，2.并注册到消息广播器中，3.发布早期待处理事件时通过multicastEvent()方法进行发布，publishEvent()-> multicastEvent() ->invokeListener() 这个方法里就是我们在自定义监听器时重写的方法，也正是在这里监听器调用了我们自己定义的onApplicationEvent()，实现了自定义的一些功能
+	11. finishBeanFactoryInitialization(beanFactory); // 重点看这里：对非延迟初始化的单例bean进行初始化 getBean
+	12. finishRefresh(); // 完成刷新过程，通知生命周期处理器lifecycleProcessor刷新过程，同时发出ContextRefreshEvent通知别人。
+
+备注：
+	BeanFactory 接口位于类结构树的顶端，它最主要的方法就是getBean(String beanName)，该方法从容器中返回特定名称的Bean，BeanFactory的功能通过其他的接口得到不断扩展：
+	BeanDefinition ：Spring配置文件中每一个<bean>节点元素在Spring容器里都通过一个BeanDefinition对象表示,用来管理bean，包含bean配置信息，例如class对象，作用域：单例多例，是否懒加载等属性。通过BeanDefinitionRegistry#registerBeanDefinition(String beanName, BeanDefinition beanDefinition) 将BeanDefinition注册到工厂中，
+	BeanFactoryPostProcessor 操作的是BeanDefinition（可以对BeanDefinition注册之后，bean实例化之前对BeanDefinition进行处理）
+
+	registerBeanPostProcessors 主要作用是将BeanPostProcessor注册到容器(BeanFactory)中，实现BeanPostProcessor接口的有很多后置处理器。这一步会实例化所有的后置处理器。
+	仅仅实例化，不会执行，这些后置处理器，在后面代码会用到，例如AutowiredAnnotationBeanPostProcessor（BeanPostProcessor作用：对bean的一些处理，前置后置处理）
+
+
+
+⚫BeanFactory & ApplicationContext 的联系和区别
+BeanFactory：是顶级容器，Spring中相当古老的Factory了，比如说XmlBeanFactory就是一种相当典型的BeanFactory。所以原始的BeanFactory主要提供getBean方法，无法支持诸如AOP、Web应用等其他功能，需要实现类帮组其完善。一搬在spring框架内部使用
+ApplicationContexty：继承了BeanFactory，我们习惯称为上下文，拥有BeanFactory所有功能的同时，还提供了更多的扩展功能：
+	1.实现MessageSource，因此支持国际化。   
+	2.加载多个配置文件 
+	3.实现ApplicationEventPublisher提供事件机制 
+	4.实现ResourcePatternResolver，提供资源访问，如URL和文件
+但是这还不是主要区别，主要区别在于BeanFacotry是延迟加载，会在你第一次调用getBean时初始化
+而ApplicationContext会在初始化的时候就加载并且检查，这样的好处是可以及时检查依赖是否完全注入；所以通常来说我们会选择使用ApplicationContext。
+
+
+
+⚫BeanFactory和FactoryBean的区别
+BeanFactory：是个Factory，也就是IOC容器或对象工厂，FactoryBean是个Bean。在Spring中，所有的Bean都是由BeanFactory(也就是IOC容器)来进行管理的。
+FactoryBean：这个Bean不是简单的Bean，而是一个能生产或者修饰对象生成的工厂Bean,它的实现与设计模式中的工厂模式和修饰器模式类似
+
+
+
+⚫@Autowired流程
+在容器初始化时会调用AbstractApplicationContext#refresh方法，在容器初始化过程中，在registerBeanPostProcessors这个方法中会实例化所有的后置处理器，
+其中有一个叫AutowiredAnnotationBeanPostProcessor的后置处理器，该处理器实现了BeanPostProcessor，该后置处理器的作用就是扫描bean中带有@Autowired注解的变量，方法，或者构造器，
+在我们创建bean的时候会执行AbstractAutowireCapableBeanFactory#doCreateBean方法，该方法中有一个方法是applyMergedBeanDefinitionPostProcessors，这个方法就是对实例化后的bean进行一些后置处理其中包括@Resource@Autowired@PostConstruct一些处理
+这里一个用到了策略模式，会获取到所有实现BeanPostProcessorde接口的类，然后按顺序执行每个实现类中的方法。其中AutowiredAnnotationBeanPostProcessor实现的方法中，
+会通过反射获取，含有@Autowired注解的方法或者变量，放入InjectedElement对象中（：就是每一个被@Autowired标注的方法或者属性，都用一个InjectedElement来封装），那么一个类中所有注入属性方法封装到一个InjectedElement集合中，
+最后放到一个新创建的InjectionMetadata中，该对象中含有class对象和InjectedElement集合，最后会对该集合检查，去重，重新赋值给InjectionMetadata
+在执行doCreateBean方法中执行到populateBean方法时，该方法会通过反射去处理，进行属性填充，会判断是否注入，以及自动装配的方式的判断等（Spring整合Mybatis中，将Mapper的自动装配类型改成了BY_TYPE，// 于是在Mapper得以在这里被填充SqlSessionTemplate,SqlSessionFactory属性）
+最后将该bean注入到对应得类中
+
+getBean() -> 
+	doGetBean() -> //真正实现向IoC容器获取Bean的功能，也是触发依赖注入的地方
+		createBean()->
+			doCreateBean()->
+				applyMergedBeanDefinitionPostProcessors()->
+					postProcessMergedBeanDefinition()-> 
+						InjectionMetadata metadata = findAutowiringMetadata(beanName, beanType, null);   InjectionMetadata类中包含了哪些需要注入的元素及元素要注入到哪个目标类中
+						
+
+
+
+⚫spring整合mybatis，为什么mapper不加注解也可以？
+因为启动类中注解@MapperScan，会扫描指定包下的mapper类，
+@MapperScan注解类上一个注解@Import(MapperScannerRegistrar.class)，在准备工厂阶段，会把 @Import引入的类当作配置类，后期通过Spring创建这个bean
+该MapperScannerRegistrar类实现了ImportBeanDefinitionRegistrar接口，该接口中参数中提供了BeanDefinitionRegistry类，该类可以实现向bean工厂注入BeanDefinition
+那么接口是怎么实例化的呢，通过代理把接口代理成mapperFactoryBean，那么就可以实例化了。剩下就是自动装配了，通过by_type的当时装配
+
+1.IOC 通过注解扫描指定包名，在初始化的时候调用@MapperScan 注解中指定的类最终执行 doScan 方法，将所有的 Mapper 接口的 Bean 定义都改成 FactoryBean 的子类 MapperFactoryBean，并将该 SqlSessionFactory 和 SqlSessionTemplate 添加到该类中。
+2.Spring IOC 在实例化该 Bean 的时候，需要传入接口类型，并将 SqlSessionFactory 和 SqlSessionTemplate 注入到该 Bean 中。并调用 configuration 的 addMapper 方法，解析配置文件。
+3.当调用 MapperFactoryBean 的 getObject 方法的时候，事实上是调用 SqSession 的 getMapper 方法，而这个方法会返回一个动态代理对象。所有对这个对象的方法调用都是底层的 SqlSession 的方法。
+
+
+
+⚫spring什么时自动装配，有哪些方式，类型？
+自动装配就是让应用程序上下文为你找出依赖项的过程。说的通俗一点，就是Spring会在上下文中自动查找，并自动给bean装配与其关联的属性！
+spring中实现自动装配的方式有两种，一种是通过xml文件、另一种是通过注解。下面将为大家介绍这两种方式实现自动装配。
+
+
+
+⚫spring源码用到的设计模式，举例说明
+1.refresh()模板方法
+2.setPropertyValues 方法实现的，该方法使用了委派模式。(不在23种设计模式当中)
+3.BeanPostProcessor后置处理器使用策略模式  @PostConstruct、@PreDestory、@Autowired、@Resource、@Value  五个注解对应五个处理器。
+	@PostConstruct、@PreDestory： InitDestroyAnnotationBeanPostProcessor
+	@Resource：CommonAnnotationBeanPostProcessor
+	@Autowired、@Value：AutowiredAnnotationBeanPostProcessor
+	针对不同的注解选择不同的策略，每个策略对应一个后置处理器
+
+4.bean实例化策略模式：策略模式的类InstantiationStrategy 来创建bean。InstantiationStrategy有两个实现类
+	SimpleInstantiationStrategy：其功能就如同类名一样，只是简单的根据构造函数和参数来创建bean
+	CglibSubclassingInstantiationStrategy：在SimpleInstantiationStrategy的基础上，添加了根据Cglib来动态生成子类的功能。
+
+5.责任链模式，populateBean方法中
+		// 给InstantiationAwareBeanPostProcessors最后一次机会在属性注入前修改Bean的属性值
+		// 采用职责链的方式对所有实现了InstantiationAwareBeanPostProcessor的后置处理器调用.
+        // 直到某个InstantiationAwareBeanPostProcessor在postProcessAfterInstantiation中返回了false
+        if (!mbd.isSynthetic() && hasInstantiationAwareBeanPostProcessors()) {
+            for (BeanPostProcessor bp : getBeanPostProcessors()) {
+                if (bp instanceof InstantiationAwareBeanPostProcessor) {
+                    InstantiationAwareBeanPostProcessor ibp = (InstantiationAwareBeanPostProcessor) bp;
+                    // 如果返回了false,直接中断,不进行下面的操作
+                    if (!ibp.postProcessAfterInstantiation(bw.getWrappedInstance(), beanName)) {
+                        return;
+                    }
+                }
+            }
+        }
+
+6.IOC就是工厂模式：Spring使用工厂模式可以通过 BeanFactory 或 ApplicationContext 创建 bean 对象
+7.适配器（Adapter）:将一个类的接口转换成客户希望的另外一个接口。Adapter模式使得原本由于接口不兼容而不能一起工作的那些类可以一起工作。
+	由于Advisor链需要的是MethodInterceptor（拦截器）对象，所以每一个Advisor中的Advice都要适配成对应的MethodInterceptor对象。
+	Spring AOP中的增强和通知Advice使用了适配器模式,接口是AdvisorAdapter
+	常用的Advice类型包括:
+		BeforeAdvice: 前置通知. 目标方法调用前增强
+		AfterAdvice: 后置通知. 目标方法调用后增强
+		AfterReturningAdvice: 目标方法执行结束之后 ,return之前	
+	每个通知Advice都有对应的拦截器:
+		BeforeAdvice - MethodBeforeAdviceInterceptor
+		AfterAdvice - MethodAfterAdviceInterceptor
+		AfterReturningAdvice - MethodAfterReturningAdviceInterceptor
+	Spring中预定义的通知要通过对应的适配器,适配成为MethodInterceptor接口类型的对象
+
+8.包装器（Decorator）:动态地给一个对象添加一些额外的职责。Spring中用到的包装器模式在类名上有两种表现：一种是类名中含有Wrapper
+	BeanWrapper其实就是一个Bean的包装器，它对Bean包装的目的是为了能操纵Bean中的属性，所以它同时需要具备获取以及设置Bean中的属性能力，所以它也必须是一个属性访问器（PropertyAccessor），另外为了将各种不同类型的配置数据绑定到Bean的属性上，那么它还得具备属性转换的能力，因为它还得是一个类型转换器
+	在ioc中获取被包装bean的属性，属性值，属性描述等，同时BeanWrapperImpl实现类提供一些属性编辑器，支持不同类型的转换
+9.观察者模式：spring事件机制中有三个角色，
+	事件：ApplicationEvent就是事件，继承jdk中的EventObject，spring中所有的事件都要继承ApplicationEvent，并且通过source得到事件源，该类的实现类ApplicationContextEvent表示ApplicaitonContext的容器事件
+	事件源（事件发布）：spring底层组件ApplicationEventPublisher提供了发布事件的方法publishEvent(ApplicationEvent event);，发布事件，监听者就能监听到消息，即"通知"观察者。ApplicationContext继承了该类，所以拥有事件发布能力
+	事件监听器：ApplicationListener（抽象类，继承jdk的EventListener）就是监听器，spring中所有监听器都要继承该类，这个接口只有一个onApplicationEvent()方法，该方法接受一个ApplicationEvent或其子类对象作为参数
+				在方法体中,可以通过不同对Event类的判断来进行相应的处理（if(event instanceof MyEvent)），当事件触发时，所有的监听器就会收到消息
+
+9.单例模式，原型模式，代理模式
+参考：https://juejin.cn/post/6844903654625902606
+
+⚫spring bean作用域：
+① singleton：单例模式，是默认作用域，不管收到多少 Bean 请求每个容器中只有一个唯一的 Bean 实例。
+② prototype：原型模式，和 singleton 相反，每次 Bean 请求都会创建一个新的实例。
+③ request：每次 HTTP 请求都会创建一个新的 Bean 并把它放到 request 域中，在请求完成后 Bean 会失效并被垃圾收集器回收。
+④ session：和 request 类似，确保每个 session 中有一个 Bean 实例，session 过期后 bean 会随之失效。
+⑤ global session：当应用部署在 Portlet 容器中时，如果想让所有 Portlet 共用全局存储变量，那么这个变量需要存储在 global session 中。
+
+7.观察者模式 ：springmvc在启动后，servlet容器也会启动，这时会发布ServletContextEvent事件，ContextLoaderListener监听器会监听到该事件，监听到该事件后，会初始化springioc容器
+
+
+⚫Bean的生命周期
+见详细文档
+
+
+⚫@Autowired和@Resource区别。
+文章：https://www.zhihu.com/question/39356740/answer/1907479772
+@Autowired 是spring自带的注解，默认以类型的方式装配，找不到required = true会抛异常，也可以搭配@Qualifier通过name的方式匹配，或者搭配@Primary：自动装配时当出现多个Bean候选者时，被注解为@Primary的Bean将作为首选者，否则将抛出异常
+还可以设置required属性为false。允许依赖的对象为空，@Autowired能够用在：构造器、方法、参数、成员变量和注解上，spring4.0以上如果type一样的类。会按照name去查找，所以注入类型相同，名字不同不会报错
+
+@Resource是JDK中的注解，默认以name的方式装配，@Resource能用在：类、成员变量和方法上。
+如果指定type，那就按类型装配，找不到抛异常
+如果指定name，那就按名称装配，找不到或者找到多个，都抛异常
+如果指定name和type，那就按两个匹配唯一的bean，找不到抛异常
+如果都没指定，那就按name装配，找不到就按类型匹配，找不到抛异常
+
+
+
+⚫为什么不推荐使用@Autowired、
+@Autowired是spring中的注解，如果换一个ioc框架。那么@Autowired就不可以使用，但是@Resource是jdk中，只要不换开发语言，就可以使用
+
+
+
+⚫为什么不推荐使用属性注入，推荐使用构造器（强制依赖），setter注入（可选、可变的依赖）？
+1.在一个类的构造器中调用注入的bean的方法，会报空指针，因为你先执行构造器，才会执行属性注入，
+2.可能注入的对象可能是空，过于依赖注入容器了，当没有启动整个依赖容器时，这个类就不能运转，在反射时无法提供这个类需要的依赖
+3.如果这个类使用了依赖注入的类，那么这个类摆脱了这几个依赖必须也能正常运行。然而使用变量注入的方式是不能保证这点的
+
+
+
+⚫spring常见得注解及功能
+@Configurable  标注该类为Spring中的配置类
+@ComponentScan 自动扫描包
+@Bean 创建对象的方法 可以通过一个返回值为该对象的方法去创建该对象，并通过构造器为该对象的属性进行赋值。@Bean public Product product1() {return new Product("张三","hashd",1);}
+@TypeFilter 可以过滤一些资源不让它加载到ioc容器中。它的使用要在@ComponentScan这个注解中去使用
+@Scope 设置组件作用域 另外scope还有prototype、request、session、global session作用域。
+@Lazy-bean 懒加载针对单例bean
+@Conditional 按照条件注册
+@Import 给容易快速导入组件
+@FactoryBean 
+
+
+⚫spring bean作用域：
+singleton单例模式，全局有且仅有一个实例。（默认值）
+prototype原型模式，每次获取Bean的时候会有一个新的实例。
+request表示该针对每一次HTTP请求都会产生一个新的bean，同时该bean仅在当前HTTP
+session作用域表示该针对每一次HTTP请求都会产生一个新的bean，同时该bean仅在当前HTTP session内有效
+global session作用域类似于标准的HTTP Session作用域，不过它仅仅在基于portlet的web应用中才有意义
+
+spring可以通过xml方式和注解两种途径去注入对象 
+
+每种途径中都可以使用setter注入和构造器注入，注解方式可以用Field 字段注入(@Autowired private ss ss;)
+@Autowired 注解可以标注给属性，方法，构造器，参数
+
+
+
+⚫spring的设计好处
+Spring的高明之处在于，它使用众多接口描绘出了所有装置的蓝图，构建好Spring的骨架，继而通过继承体系层层推演，不断丰富，最终让Spring成为有血有肉的完整的框架。所以查看Spring框架的源码时，有两条清晰可见的脉络：
+1）接口层描述了容器的重要组件及组件间的协作关系；
+2）继承体系逐步实现组件的各项功能。
+接口层清晰地勾勒出Spring框架的高层功能，框架脉络呼之欲出。有了接口层抽象的描述后，不但Spring自己可以提供具体的实现，任何第三方组织也可以提供不同实现， 可以说Spring完善的接口层使框架的扩展性得到了很好的保证。
+纵向继承体系的逐步扩展，分步骤地实现框架的功能，这种实现方案保证了框架功能不会堆积在某些类的身上，造成过重的代码逻辑负载，框架的复杂度被完美地分解开了。
+
