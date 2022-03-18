@@ -1,0 +1,215 @@
+
+⚫什么是spring boot
+SpringBoot不是一个框架，是一种全新的开发方式，可以简化spring应用的搭建和开发过程，省去了过多的配置文件web.xml，有效的简化Java后端系统的开发。SpringBoot是用来简化SSM框架开发的：starter、自动配置
+简化的地方：
+1.Spring Boot Starter:通过引入各种Starter 包可以快速搭建出一个项目，例如：spring-boot-starter-data-redis，spring-boot-starter-data-jpa
+2.AutoConfiguration自动加载配置类
+
+
+⚫spring boot启动过程。
+springboot启动首先会加载一系列的bean和配置类。然后run方法中做一些初始化工作
+1.@SpringBootApplication注解。sprngboot启动核心注解，该注解中分为三个核心注解
+	1.@ComponentScan：扫描启动类所在路径下带有注解的类，
+	2.@EnableAutoConfiguration  这个注解付责加载META-INF/spring.factories中的配置类中key为EnableAAutoConfiguration的所有配置类
+	3.@SpringBootConfiguration  表示当前类是一个配置类，功能同@Configuration
+2. SpringApplication.run(SpringmvcApplication.class, args);
+	实际上调用run方法是SpringApplication 实例化后调用的方法，也就是new之后调用的普通方法。那么在new时会进行初始化工作：初始化监听器、设置启动类集合、设置类加载器，初始化器等工作
+	然后调用run方法，该方法主要做一些：发布事件、配置环境参数、打印banner、创建ApplicationContext应用上下文、刷新容器、打印日志等等
+
+
+
+
+⚫什么是spring cloud
+springcloud 为开发人员提供了在分布式系统中快速构建一些常见模式的工具，是一系列框架【技术】的有序集合（例如配置管理、服务发现、断路器、智能路由、微代理、控制总线、一次性令牌、全局锁、领导选举、分布式会话、集群状态），
+通过 Spring Boot 风格进行再封装屏蔽掉了复杂的配置和实现原理，最终给开发者提供了一套简单易懂、易部署和易维护的分布式系统开发工具包，缺点：版本不稳定，使用技术成本高（避免大炮轰蚊子）
+Spring Cloud 官网：https://spring.io/projects/spring-cloud 
+Spring Cloud 中文网：https://springcloud.cc/ Spring Cloud 
+中国社区 : http://springcloud.cn/
+
+
+
+
+⚫springcloud的了解  相对于springmvc的区别
+
+
+
+
+⚫config配置中心  还有什么配置中心，  springcloud是怎么找到配置文件的
+如果我们项目在运行时，更改了配置文件，必须重启服务才能生效，所以配置中心可以解决我们重启服务的问题，帮我们动态的更新配置文件，不需在重启，
+其原理是，spring config配置中心的配置是放在git仓库的，当然可以用数据库或者本地文件存储，当你放在git仓库时，首先我们要更改配置文件然后将文件推送到git仓库，
+文件修改会触发发送post请求给配置中心服务端，服务端接到请求，然后将消息发送给消息总线（消息队列），消息总线再通知客户端，客户端请求服务端获取最新的配置文件/客户端启动时也会主动拉去最新配置
+
+nacos congif无需消息总线，搭建成本和复杂都比spring config低很多。nacos服务端更新配置文件后，通过pull长轮询的方式将最新配置文件推给客户端
+
+
+
+⚫Eureka注册中心客户端
+	Eureka Client 是一个 Java 客户端，用于简化与Eureka Server的交互。Eureka Client会拉取、更新和缓存Eureka Server中的信息。因此当所有的Eureka Server节点都宕掉，
+	服务消费者依然可以使用缓存中的信息找到服务提供者，但是当服务有更改的时候会出现信息不一致。
+1.Register: 服务注册
+	Eureka Client通过发送rest请求的方式， 向 Eureka Server 注册自己的服务，注册时提供自身的元数据，比如 IP 地址、端口，运行状况指标，主页地址等。
+	Eureka Server接收到服务注册后，会把元数据信息存储在一个map中。在客户端启动的时候注册服务(服务的提供者，将自身注册到注册中心，服务提供者也是一个 Eureka Client。)
+2.Renew: 服务续约
+	Eureka Client 会每隔 30 秒发送一次心跳来续约。 通过续约来告知 Eureka Server 该 Eureka Client 运行正常，没有出现问题。 
+	默认情况下，如果 Eureka Server 在 90 秒内没有收到 Eureka Client 的续约，Server 端会将实例从其注册表中删除，此时间可配置，一般情况不建议更改。
+3.获取服务列表：
+	客户端在启动的时候，会发送rest请求给服务端，获取注册中心的服务清单，缓存到客户端本地，同时为了性能和安全考虑，客户端每个30s更新一次缓存冲的服务清单
+4.Eviction 服务剔除
+	当客户端出现网路故障等问题，无法提供服务时，也没办法通知服务端下线，所以需要服务剔除功能，Eureka Server在启动时会创建一个定时任务，每个60s，从当前服务清单中，剔除掉超过90s没有续约的服务
+5.Cancel: 服务下线
+	Eureka Client 在程序关闭时向 Eureka Server 发送rest请求。告诉服务端自己要下线了， 发送请求后，该客户端实例信息将从 Eureka Server 的实例注册表中删除。该下线请求不会自动完成，它需要调用以下内容：
+6.自我保护机制
+	默认情况下，如果 Eureka Server 在一定的 90s 内没有接收到某个微服务实例的心跳，会注销该实例。但是当网络分区故障发生时。微服务与Eureka Server之间无法正常通信，
+	而微服务本身是正常运行的，此时不应该移除这个微服务，为了保证整个微服务架构的可用性，所以引入了自我保护机制
+7.那么什么是自我保护机制呢？
+	Eureka Server 在运行期间会去统计心跳失败比例在 15 分钟之内是否低于 85%，如果低于 85%，Eureka Server 即会进入自我保护机制。
+	1.Eureka Server不再从注册列表中移除因为长时间没收到心跳而应该过期的服务。
+	2.Eureka Server仍然能够接受新服务的注册和查询请求，但是不会被同步到其它节点上，保证当前节点依然可用。
+	3.当网络稳定时，当前Eureka Server新的注册信息会被同步到其它节点中。
+8.自我保护机制的问题：
+	但是也可能保护了真正出现了问题的微服务。这个时候，其他的微服务调用这个服务时，可能就会得到一个错误的结果，这种情况只能在调用端自行解决，比如通过Hystrix进行隔离熔断。
+
+
+
+⚫consul
+
+
+⚫ribbon
+Spring Cloud Ribbon是一个基于HTTP和TCP的客户端负载均衡工具，它基于Netflix Ribbon实现。通过Spring Cloud的封装，
+底层使用Spring的restTemplate请求方式，通过配置@LoadBalanced注解让restTemplate拥有客户端负载均衡的能力
+
+轮训策略
+•	RoundRobinRule(轮询算法)
+•	RandomRule(随机算法)
+•	AvailabilityFilteringRule()：会先过滤由于多次访问故障而处于断路器跳闸状态的服务，还有并发的连接数量超过阈值的服务，然后对剩余的服务列表按照轮询策略进行访问
+•	WeightedResponseTimeRule()：根据平均响应的时间计算所有服务的权重，响应时间越快服务权重越大被选中的概率越高，刚启动时如果统计信息不足，则使用RoundRobinRule策略，等统计信息足够会切换到WeightedResponseTimeRule
+•	RetryRule()：先按照RoundRobinRule的策略获取服务，如果获取失败则在制定时间内进行重试，获取可用的服务。默认重试时间500毫秒
+•	BestAviableRule()：会先过滤掉由于多次访问故障而处于断路器跳闸状态的服务，然后选择一个并发量最小的服务
+
+实现原理
+当ribbon和Eureka配和使用时ribbon可以自动获取服务注册列表，并基于负载均衡算法，请求其中的一个服务提供实例
+ribbon实现的关键点是为ribbon定制的RestTemplate，ribbon利用了RestTemplate的拦截器机制，将拦截器注入到RestTemplate中 在拦截器中实现ribbon的负载均衡。
+负载均衡的基本实现就是利用applicationName从服务注册中心获取可用的服务地址列表，然后通过一定算法负载，决定使用哪一个服务地址来进行http调用。
+
+由于ribbon是netflix公司的所以，sprincloud已经不推荐使用，并自己开发spring cloud loadbalancer替代ribbon，原理基本一致
+
+
+
+
+⚫feign：官网：声明式rest客户端，使服务之间的调用就像调用内部接口一样简单，并Feign可以与Eureka和Ribbon组合使用以支持负载均衡。
+服务间调用组件feign，并且集成了Ribbon
+1.通过主类上的@EnableFeignClients 注解开启FeignClient；
+2.根据Feign 的规则实现接口，并加上FeignClient注解，供调用的地方注入调用；
+3.程序启动后，会扫描所有FeignClient 注解的类，并将这些信息注入到IOC 容器中；
+4.当b中接口被调用时，通过jdk代理，以及反射（Spring处理注解的方式），来生成具体的RequestTemplate
+5.RequestTemplate 生成Reqest
+6.Request 交给httpclient处理，这里的httpclient 可以是OkHttp，也可以是HttpUrlConnection 或者HttpClient
+7.最后Client被封装到LoadBalanceClient类，这个类结合Ribbon 实现负载均衡
+
+
+创建对象：
+@EnableFeignClients开启当前服务支持feign客户端，并扫描指定路径所有的客户端接口
+@import(FeignClientsRegistrar) 1.注册配置信息，2.注册feign客户端，注册接口实现类对象
+扫描指定包下有FeignClient的所有的接口，并把接口中url,path,name等信息，注册成BeanDefinition，然后把BeanDefinition交给spring，放入spring容器
+
+如何发送请求：会根据FeignClient接口，基于动态代理技术生成代理对象，代理对象中使用HttpURLConnection发送请求访问服务
+从spring容器spplicationContext中中获取FeignClient对象，然后通过注解信息中name（服务名）找到注册中心对应的url地址和端口号,或者直接获取注解中的url。拼接处一个http请求，
+然后根据目标接口（feignClient接口），通过JDK动态代理，创建一个代理对象，通过代理对象拦截目标方法，在invoke方法方法中，会创建一个连接对象HttpURLConnection，使用HttpURLConnection发送请求，在方法调用时才发生负载均衡
+
+问题：@FeignClient 上加 @RequestMapping 报错的问题？
+原因：@Controller 和  @RequestMapping 注解修饰的类就是一个处理请求的Handler处理类，被@RequestMapping修饰的类在这之前已经注册过,这里FeignClient的方法再次注册就会出现重复注册的错误
+	也就是说FeignClient接口类和实现FeignClient的类，两者中只有实现类才可以写@RequestMapping和@Controller，如果在FeignClient接口上写@RequestMapping会导致路径重复，导致重复注册handle
+解决：直接在方法上写请求路径或者修改springmvc源码
+
+feign提供了一个请求参数压缩功能。可以在配置文件配置
+还有提供日志记录的功能，记录请求的request reponse header body等信息 
+
+⚫Hystrix
+Springcloud熔断器，在分布式系统中对服务间的调用进行控制，加入一些调用延迟或者依赖故障的容错机制。
+1.熔断
+	当Hystrix Command请求后端服务失败数量（默认是20个服务）超过一定比例(默认50%), 断路器会切换到开路状态(Open). 这时所有请求会直接失败而不会发送到后端服务. 断路器保持在开路状态一段时间后(默认5秒), 自动切换到半开路状态(HALF-OPEN).
+	这时会判断下一次请求的返回情况, 如果请求成功, 断路器切回闭路状态(CLOSED), 否则重新切换到开路状态(OPEN).
+
+2.降级
+	Fallback相当于是降级操作. 对于查询操作, 我们可以实现一个fallback方法, 当请求后端服务出现异常的时候, 可以使用fallback方法返回的值. fallback方法的返回值一般是设置的默认值或者来自缓存.告知后面的请求服务不可用了，不要再来了。
+	feign的注解@FeignClient包含两个方法：
+	1.
+	@FeignClient(name=" user", fallback=XXXFallback.class)
+	fallbackFactory（类似于断容器）：需要访问导致回退的触发原因时：
+	public class XXXFallback implements FallbackFactory<XXXApi> {
+	2.
+	@FeignClient(value="trade",fallbackFactory= XXXFallback.class )
+	fallback方法：普通回退方法 直接指明类名 ：
+	public class XXXFallback  implements XXXApi{
+	(如果需要捕捉异常错误信息用此降级方法)
+	备注：降级的次数多了就会进入熔断器
+3.隔离
+	(采用舱壁模式，Docker就是舱壁模式的一种)：在Hystrix中, 主要通过线程池来实现资源隔离. 通常在使用的时候我们会根据调用的远程服务划分出多个线程池.比如说，一个服务调用两外两个服务，你如果调用两个服务都用一个线程池，那么如果一个服务卡在哪里，资源没被释放
+	后面的请求又来了，导致后面的请求都卡在哪里等待，导致你依赖的A服务把你卡在哪里，耗尽了资源，也导致了你另外一个B服务也不可用了。这时如果依赖隔离，某一个服务调用A B两个服务，如果这时我有100个线程可用，我给A服务分配50个，给B服务分配50个，这样就算A服务挂了，
+	我的B服务依然可以用
+
+Sentinel也可以做熔断器
+
+
+Gateway
+在微服务架构系统中，网关是系统对外的唯一出入口介于服务端与客户端之间，用于对请求进行鉴权，限流，路由，监控等功能，本身也是一个微服务
+springcloud gateway是springcloud自己开的开源网关，简历在spring5，Reactor模型，springboot2之上，使用非阻塞API,支持异步开发
+是替代zuul的的产品，因为zuul是Netfilx公司开发的，开始是开源，后来闭源，zuul2.0后又开源，基于servlet的，使用阻塞API，不支持任何长连接
+
+工作原理
+	两端三大件：两端；客户端服务端，三大件：Gateway路由映射器，Gateway处理器，过滤器链（前置，后置处理器），
+
+断言工厂
+	path，after（时间），before（时间），between（时间区间），cookie，header，host，Method等
+
+过滤器：
+	PrefixPath添加前缀：为URL添一个指定的前缀
+	StripfixPath去除后缀：为url去掉指定长度的后缀
+	AddRequestParameter：为匹配上的请求添加指定的参数
+	AddRequestHeader：为匹配上的请求添加header
+	AddResponseHeader：从网关返回的响应添加header
+	RewritePath：会将请求的URL替换成另一个指定的url进行访问
+	自定义过滤器，可同时使用多个过滤器
+	自定义全局过滤器，模拟网关鉴权
+
+网关熔断降级限流
+接口无法访问时，返回一个固定页面，给用户一个友好体验，熔断降级限流都是通过过滤器实现的 
+
+限流：
+漏桶算法：nigix
+	请求进入到漏桶里，漏桶以一定速度出水，当桶满了以后，流入的请求会直接拒绝，能强行的限制数据的传输速率
+		流入：以任意速率
+		流出：固定速率
+	缺点：因为流出速率固定，当大规模突发请求时，无法适当扩大流出速率，不能处理多余的请求，浪费带宽
+	优点：有效限流，无法击垮服务，保证服务可用
+令牌桶算法：网关
+	请求获取到token令牌之后才可以访问具体服务，拿不到令牌拒绝服务，令牌桶分为2步骤：
+	1.以固定速度往桶中存入令牌，
+	2.客户端如果想访问，先从桶中获取令牌
+		流入：以固定速率将令牌放入桶中
+		流出：以任意速率从桶中流出
+	优点：支持大的并发，有效利用网络带宽
+	缺点：没有很强的突发流量处理能力
+	实现：
+	使用redis作为令牌桶
+	spring
+	 cloud
+	  gateway
+	   routes
+	    id:
+		url:
+		predicates:
+		filters:
+		 name:
+		 args:
+		   key-resolver: "#{keyResolver}"  //令牌key，可以绑定请求id，或者用户id。keyResolver是一个java方法，该方法获取用户id
+		   redis-rate-limiter.replenishRate:2   令牌桶流入速率
+		   redis-rate-limiter.burstCapacity:5   令牌桶容量
+		   
+	@Bean
+	public KeyResolver keyResolver(){
+		return t1 - >Mono.just(exchange.getRequest().getRemoteAddress().getHostName());
+	}
+	
+
+⚫怎么实现一个自增长id（非数据库）
