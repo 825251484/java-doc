@@ -62,7 +62,7 @@
 		⑤ 如果回查15次还是没有查询到结果，这个消息将被删除（默认：private int transactionCheckMax = 15; private long transactionCheckInterval = 60 * 1000;）
 	3.工作原理
 		mq服务端有两个内置topic，一个付责存储一阶段提交的半事务消息。另一个存储二阶段提交的本地事务的结果commit或者rollback。
-		会根据二阶段的结果commit，把事务消息重新投递到正常的topic中，这方消费者就能发现这个topic，就可以消费这条消息了，如果rollback：不投地消息，在内置topic中，存储三天后删除
+		会根据二阶段的结果commit，把事务消息重新投递到正常的topic中，这时消费者就能发现这个topic，就可以消费这条消息了，如果rollback：不投地消息，在内置topic中，存储三天后删除
 		那么服务器是怎么判断这个半事务消息是否要回查呢？
 		通过第一个topic和第二个topic对比，第一个topic存储的是所有半事务消息。第二个存储的是只有返回结果的消息。通过第一个topic-第二个topic，能找到第一个topic中没有返回事务结果的消息。然后进行回查
 		HALF消息:RMQ_SYS_TRANS_HALF_TOPIC(第一阶段：临时存放消息信息)
