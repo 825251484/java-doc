@@ -113,6 +113,7 @@ Offset分类：
 	广播模式下：每个Consumer都收到这个Topic的全部消息，各个Consumer间相互没有干扰， RocketMQ使用LocalfileOffsetStore，把Offset存到本地 (消费者)。
 注意：Consumer. setConsumeTimestamp(),可以通过参数设置消费者从哪里开始消费，但是消费者重启后，该参数将失效。会接着上次offset继续消费
 集群模式下：offset的存储格式：
+private ConcurrentMap<String, ConcurrentMap<Integer, Long>> offsetTable = new ConcurrentHashMap(512);
 {
 "offsetTable": {
 	"test-topic@test-group": {//topic@消费者组
