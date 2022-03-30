@@ -86,6 +86,9 @@ RT：响应时间，处理一次请求所需要的平均处理时间
 					-- RedissLockUtil.unlock("seckill_redis_lock_" + killId);
 				问题：同样该方法同样存在，锁和事务冲突的问题
 				解决：锁上移，AOP方式加锁
+				分布式锁对比zk、redis、数据库锁（乐观悲观锁）：
+					从性能角度（从高到低）：缓存redis > zk > 数据库锁
+					从可靠性角度（从高到底）：zk > 缓存redis > 数据库锁
 			3）数据库锁（mysql锁）
 				1.悲观锁
 					实现：
