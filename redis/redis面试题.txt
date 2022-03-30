@@ -24,8 +24,6 @@ keys test* 模糊查询key
 		12位（bit）可以表示的最大正整数是2^12−1=4095，即可以用0、1、2、3、....4094这4095个数字，来表示同一机器同一时间截（毫秒)内产生的4095个ID序号
 		由于在Java中64bit的整数是long类型，所以在Java中SnowFlake算法生成的id就是long来存储的。
 
-
-	
 	
 ⚫redis五种数据结构特点，和使用场景
 1.string  适合json格式查询，锁 setnx，数字增减功能（限整数）：incr 递增、decr递减，也可指定数值增减incyby，计数器、共享用户session（用户登录token）、分布式锁
@@ -101,7 +99,6 @@ Redis Stream：
 		2. 为了性能 day03
 
 
-
 ⚫redis lua表达式
 	1.概念lua：是一个脚本语言，redis中集成了lua的解释器，可以在redis中直接运行lua脚本。
 	2.在redis中执行lua脚本命令：
@@ -118,7 +115,6 @@ Redis Stream：
 		2. 原子操作，redis会将整个脚本作为一个整体执行，中间不会被其他命令插入。换句话说，编写脚本的过程中无需担心会出现竞态条件
 		3. 复用性，客户端发送的脚本会永远存储在redis中，这意味着其他客户端可以复用这一脚本来完成同样的逻辑
 		lua 教程 https://www.runoob.com/lua/lua-tutorial.html
-
 
 
 ⚫reids锁
@@ -158,7 +154,6 @@ Redis Stream：
 		从可靠性角度（从高到底）：zk > 缓存redis > 数据库锁
 			
 			
-
 ⚫Redisson中lock和setnx的区别？
 jedis：
 	场景：jedis是封装了redis的所有功能，更适合做缓存数据
@@ -191,7 +186,6 @@ mem_fragmentation_ratio ： used_memory_rss / used_memory的比值。
 	mem_fragmentation_ratio一般大于1，且该值越大，内存碎片比例越大。
 	mem_fragmentation_ratio<1，说明Redis使用了虚拟内存，由于虚拟内存的媒介是磁盘，比内存速度要慢很多，当这种情况出现时，应该及时排查，如果内存不足应该及时处理，如增加Redis节点、增加Redis服务器的内存、优化应用等。一般来说，
 	mem_fragmentation_ratio在1.03左右是比较健康的状态（对于jemalloc来说）；刚开始的mem_fragmentation_ratio值很大，是因为还没有向Redis中存入数据，Redis进程本身运行的内存使得used_memory_rss 比used_memory大得多。
-
 
 
 ⚫redis内存结构：
@@ -234,7 +228,6 @@ skiplist跳跃表：跳跃表是一种有序数据结构，通过在每个节点
 技能保证充分利用内存空间，又能保证我们的性能使用
 对于c中的字符串来说，如果修改字符串，就要重新分配内存。因为如果不重新分配内存，字符串增大会造成内存溢出，如果字符串减少，会造成内存泄漏，所以sds采用预分配方式（分配的内存比实际需要的多）
 使得修改字符串时减少了重新分配内存的概率
-
 
 
 ⚫redis 中数据的内存编码
