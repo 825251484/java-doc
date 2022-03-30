@@ -152,6 +152,7 @@ Redis Stream：
 	分布式锁对比zk、redis、数据库锁（乐观悲观锁）：
 		从性能角度（从高到低）：缓存redis > zk > 数据库锁
 		从可靠性角度（从高到底）：zk > 缓存redis > 数据库锁
+		因为zk是cp模型，强一致性模型，所以性能没有redis高，redis是ap模型
 			
 			
 ⚫Redisson中lock和setnx的区别？
