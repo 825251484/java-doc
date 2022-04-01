@@ -192,7 +192,7 @@ mem_fragmentation_ratio ： used_memory_rss / used_memory的比值。
 
 ⚫redis内存结构：
 是一个类似于map的存储结构，封装了一个dict对象。该对象中有一个ht数组，是用来做rehash（扩容用的），只有ht[0],ht[1],其中ht[1]只有在rehash使用到，正常数据存储在ht[0]中，ht数组中封装了一个dictht对象。
-dictht中存储table和size等信息，table是一个类似于hashtable集合，存储就是我们要的数据，这个集合中，每一个对象都是dictEntry对象。
+dictht中存储table和size等信息，table是一个类似于hashtable的结构，是数组+链表的方式：dictEntry[4]数组+每个节点下挂一个单向链表，链表中每个节点存储的就是一个dictEntry对象，这个对象是一个Map结构，存储就是我们要的数据。
 	dictEntry对象：
 		next：指向下一个元素的指针
 		key的指针：指向一个sds结构存储的字符串：C语言中字符串是以\0结尾的，不能满足redis的需求和性能
