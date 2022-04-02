@@ -163,6 +163,22 @@ beanFactory applicationContext ListableBeanFactory
 
 
 ⚫JAVA8,9,10,11,12新特性总结
+java8函数式编程：https://juejin.cn/post/6844904184953700360
+JAVA8特性：
+1、函数式接口：
+	Supplier<T> 生产者：无输入，生产一个T 类型的值；接口仅包含一个无参的方法:
+	T get() 。用来获取一个泛型参数指定类型的对象数据
+	Consumer<T> 消费者：输入一个T 类型的值，无输出；对给定参数执行消费操作
+	Function<T,R> 函数：输入一个T 类型的值，返回一个R 类型的值；
+	Predicate<T> 断言：输入一个T 类型的值，返回true/false
+2.lambda表达式：Lambda 它其实是匿名函数，通过约定好怎么传入参数，怎么返回参数，由编译器负责参数类型的猜测并执行结果
+	new Thread(()->{System.out.println("快速新建并启动一个线程");}).start();
+3、Optional类：Optional 类的作用主要是为了解决空指针问题，通过对结果的包装，并使用方法来代替if 判断，为流式编程打下了良好的基础。
+	        Optional<Object> o = Optional.ofNullable(null);
+        	System.out.println(o.isPresent()); //打印：false 
+4、Stream 流式编程：Stream API 借助Lambda 表达式，提供串行和并行两种模式进行汇聚操作，并行模式能够充分利用多核处理器的优势，使用fork/join 来拆分任务和加速处理过程。
+	
+
 
 ⚫java内部类分类及特点
 非静态内部类会持有外部类的引用。是因为内部类的构造器会传入外部类的对象引用。从而才能访问外部类的数据
