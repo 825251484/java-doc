@@ -163,3 +163,27 @@ beanFactory applicationContext ListableBeanFactory
 
 
 ⚫JAVA8,9,10,11,12新特性总结
+
+⚫java内部类分类及特点
+非静态内部类会持有外部类的引用。是因为内部类的构造器会传入外部类的对象引用。从而才能访问外部类的数据
+静态内部类。不需要持有外类的引用。因为只可以通过类访问静态成员
+匿名内部类：
+public class Outer {
+    String string = "";
+    void outerTest(final char ch){
+        final Integer integer = 1;
+        Inner inner = new Inner() {
+            void innerTest() {
+                System.out.println(string);
+                System.out.println(ch);
+                System.out.println(integer);
+            }
+        };
+    }
+    public static void main(String[] args) {
+        new Outer().outerTest(' ');
+    }
+    class Inner {
+    }
+}
+为什么匿名内部类使用局部变量和方法参数就需要被final修饰：为不让内部类改变内容，使其参数值产生差异。索然加上final不让你们改。
