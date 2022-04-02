@@ -127,58 +127,63 @@ synchronizedMap：
 	•Collections 类中存在一个静态方法：synchronizedMap()，该方法创建了一个线程安全的 Map 对象，并把它作为一个封装的对象来返回，synchronizedMap()其实就是对Map的方法加层同步锁，
 
 
-⚫session和cookie的区别  
-
-
-⚫多节点，如何实现session共享
-
-
-
-⚫spring有哪些容器
-beanFactory applicationContext ListableBeanFactory
-
-
-
-⚫java常用的集合
-
-
-⚫自动装箱拆箱
-
-
-⚫多线程的原理
-
-
-⚫对象的内存布局
-
-
-⚫对象的大小是8的倍数  对其填充
-
-
-
-⚫jvm三色标记
-
-
-
-⚫UML
-
-
 ⚫JAVA8,9,10,11,12新特性总结
 java8函数式编程：https://juejin.cn/post/6844904184953700360
 JAVA8特性：
-1、函数式接口：
+  1、函数式接口：
 	Supplier<T> 生产者：无输入，生产一个T 类型的值；接口仅包含一个无参的方法:
 	T get() 。用来获取一个泛型参数指定类型的对象数据
 	Consumer<T> 消费者：输入一个T 类型的值，无输出；对给定参数执行消费操作
 	Function<T,R> 函数：输入一个T 类型的值，返回一个R 类型的值；
 	Predicate<T> 断言：输入一个T 类型的值，返回true/false
-2.lambda表达式：Lambda 它其实是匿名函数，通过约定好怎么传入参数，怎么返回参数，由编译器负责参数类型的猜测并执行结果
+  2、lambda表达式：Lambda 它其实是匿名函数，通过约定好怎么传入参数，怎么返回参数，由编译器负责参数类型的猜测并执行结果
 	new Thread(()->{System.out.println("快速新建并启动一个线程");}).start();
-3、Optional类：Optional 类的作用主要是为了解决空指针问题，通过对结果的包装，并使用方法来代替if 判断，为流式编程打下了良好的基础。
+  3、Optional类：Optional 类的作用主要是为了解决空指针问题，通过对结果的包装，并使用方法来代替if 判断，为流式编程打下了良好的基础。
 	        Optional<Object> o = Optional.ofNullable(null);
         	System.out.println(o.isPresent()); //打印：false 
-4、Stream 流式编程：Stream API 借助Lambda 表达式，提供串行和并行两种模式进行汇聚操作，并行模式能够充分利用多核处理器的优势，使用fork/join 来拆分任务和加速处理过程。
-	
+  4、Stream 流式编程：Stream API 借助Lambda 表达式，提供串行和并行两种模式进行汇聚操作，并行模式parallelStream()能够充分利用多核处理器的优势，使用fork/join 来拆分任务和加速处理过程。并行有线程安全问题，同时stream提供了很多Stream API：concat,fiter,sorted,limit,foreach,reduce,count,min,findFirst,peek,distinct,toArrary,map操作（mapToLong等）
+  5、方法引用(::双冒号操作符)
+	Function<String, Integer> s = Integer::parseInt;
+	Integer i = s.apply("10");
+	Comparator<Integer> comparator = Integer::compare;
+	int result = comparator.compare(100,10);
+	规则：
+	   返回类型：返回的类型是 Java 8 专门定义的函数式接口，这类接口用 @FunctionalInterface 注解。
+	   参数：你的引用方法的参数个数、类型，返回值类型要和函数式接口中的方法声明一一对应才行。
+	例如：以下两个方法都是一一对应的
+	@FunctionalInterface
+	public interface Function<T, R> {
+	    R apply(T t);
+	}
+	public static int parseInt(String s) throws NumberFormatException {
+	    return parseInt(s,10);
+	}
+  6、JDK8 新增了静态⽅法和默认⽅法
+  
+JAVA9特性：
+  1、目录变化：jvm启功时并非加载全部jar，减少启动时占用的内存
+  2、接口私有化： JDK9 中新增了私有⽅法（JDK8 新增了静态⽅法和默认⽅法）
+  3、集合加强：jdk9为所有集合（List/Set/Map）都增加了of 和copyOf 方法，用来创建不可变集合，即一旦创建就无法再执行添加、删除、替换、排序等，否则UnsupportedOperationException异常。
+  4、Stream 方法增强：Stream 中增加了新的方法ofNullable、dropWhile、takeWhile 和iterate
+  5、jshell 命令
 
+JAVA10特性：
+  1、局部变量类型推断JDK10 可以使⽤var 作为局部变量类型推断标识符，仅适⽤于局部变量
+
+JAVA11特性：
+  1、字符串加强： //去除首尾空格 strip();// 去除尾部空格 stripTrailing();// 去除首部空格 stripLeading()// 复制字符串 repeat(3)
+  2、HttpClient API：，你可以在java.net 包中找到这个API它将替代仅适用于blocking 模式的HttpURLConnection，并提供对WebSocket 和HTTP/2 的支持。
+  3、新一代垃圾回收器ZGC：
+
+JAVA12特性：
+  1、Switch：可以省去break
+  2、Shenandoah GC新增了一个名为Shenandoah 的GC 算法，通过与正在运行的Java 线程同时进行evacuation（撤离） 工作来减少GC 暂停时间。使用Shenandoah 的暂停时间与堆大小无关，这意味着无论堆是200 MB 还是200 GB，都将具有相同的暂停时间
+JAVA13特性：
+  1、 默认生成类数据共享归档文件：在同一个虚拟机上启动多个JVM 时，如果每个虚拟机都单独装载自己需要的所有类，启动成本和内存占用成本很高。所以java 团队引入了类数据共享机制（CDS），将一些核心类在每个JVM 中共享，使启动时间减少，JVM 内存占用减少。
+  2、可中断的G1 混合GC：当G1 垃圾回收器的回收超过暂停时间的目标，能中止垃圾回收过程，目的是使用户能够设置预期的JVM 停顿时间。G1 将GC 回收集分为了mandatory（紧急）和optional（可选）两部分，若处理完mandatory 后的时间小于设置的预期时间则会继续处理optional。
+  3、ZGC 取消提交未使用的内存：ZGC 从JDK11 中被引入进来，在进行GC 的时候保证更短的停顿时间，10ms 以下， 在JDK13 中新增了归还未提交，未使用的内存给操作系统
+  4、文字块：将文本块添加至java 语言，多行字符串不需要转义，提高代码的可读性。
+HTML 示例：String html = "<html> <boby> <p> hello world </p> </boby> </html>";
 
 ⚫java内部类分类及特点
 非静态内部类会持有外部类的引用。是因为内部类的构造器会传入外部类的对象引用。从而才能访问外部类的数据
@@ -203,3 +208,14 @@ public class Outer {
     }
 }
 为什么匿名内部类使用局部变量和方法参数就需要被final修饰：为不让内部类改变内容，使其参数值产生差异。索然加上final不让你们改。
+
+⚫session和cookie的区别  
+
+⚫多节点，如何实现session共享
+
+⚫spring有哪些容器
+beanFactory applicationContext ListableBeanFactory
+
+⚫自动装箱拆箱
+
+⚫多线程的原理
