@@ -110,7 +110,7 @@
 			分配slot曹：./redis-cli --cluster reshard 集群任意节点 --cluster-from 源节点列表 --cluster-to 目标节点 slot数量
 			添加从节点：./redis-cli --cluster add-node 192.168.133.22:8008 192.168.133.22:8007 --cluster-slave --cluster-master-id 
 		缩容：
-			收缩集群：1.首先删除master对应的slave、2.清空master的slot、3.下线（删除）节点
+			收缩集群：1.首先删除master对应的slave、2.清空master的slot（将slot移动到其他节点），3.下线（删除）节点
 	集群容错：
 		(1)节点失效判断：
 			集群中所有master参与投票,如果半数以上master节点与其中一个master节点通信超过(cluster-node-timeout),认为该master节点挂掉.
