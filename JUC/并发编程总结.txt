@@ -62,7 +62,6 @@ ArraryList是线程不安全的集合类，在并发编程时可能报错：Conc
 7.把对象头中的锁标志改成10（如果由第三个线程来竞争锁，这个时候也会升级为重量级锁。即使自旋次数不多，也会升级）
 
 
-
 ⚫锁升级的相关问题
 1.锁只能升级，不能降级，偏向锁可以撤销成无锁状态
 2.升级为重量级锁条件2种：
@@ -86,7 +85,6 @@ ArraryList是线程不安全的集合类，在并发编程时可能报错：Conc
 自旋锁：CAS
 独占锁(互斥锁)：synchronized和ReentrantLock
 共享锁:ReentrantLock
-
 
 
 ⚫说说什么是AQS？
@@ -147,7 +145,6 @@ Lock.unlock()的底层实现逻辑：先判断持有锁的线程是不是当前�
 是否可中断：synchronized不可被中断，ReentrantLock可以使用tryLock(long time, TimeUnit unit)，Lock.lockInterruptibly()中断。Condition.await()也可以
 是否是公平：synchronized是不公平锁。ReentrantLock通过传入true、false选择是否公平锁
 绑定多个条件：synchronized只能随机唤醒，ReentrantLock可以通过Condition精确唤醒
-
 
 
 ⚫为什么使用线程池，线程池的优点是什么？
@@ -223,6 +220,7 @@ wait方法会释放对象锁，但sleep方法不会。
 
 
 ⚫interrupted与isInterrupted区别
+两者都是获取当前线程的中断状态
 public static boolean interrupted() { 
     return currentThread().isInterrupted(true); 
 } // 因为是静态方法，只能作用于当前线程，并且会清除线程中断标志
@@ -231,7 +229,7 @@ public boolean isInterrupted() {
 } // 可以指定某个线程，让其终止。但是不会清除中断标志。
 
 两者底层调用的都是：private native boolean isInterrupted( boolean ClearInterrupted);
-
+interrupt()：设置中断标志,将调用该方法的对象所表示的线程标记一个停止标记，并不是真的停止该线程。遇到以下情况才会中断
 
 ⚫什么状态下的线程会被中断？
 Thread.join(), Thread.sleep(), Object.wait(), Condition.await()，tryLock(long time, TimeUnit unit)，Lock.lockInterruptibly()：方法中，判断中断状态直接抛出异常
