@@ -204,19 +204,21 @@ LockSupport不用持有锁块，不用加锁，程序性能好
 
 
 ⚫线程之间通信的问题
-https://www.cnblogs.com/xiaoxi/p/7581899.html
+wait()：导致当前线程等待并使其进入到等待阻塞状态。直到其他线程调用该同步锁对象的notify()或notifyAll()方法来唤醒此线程。
+notify()：唤醒在此同步锁对象上等待的单个线程，如果有多个线程都在此同步锁对象上等待，则会任意选择其中某个线程进行唤醒操作，只有当前线程放弃对同步锁对象的锁定，才可能执行被唤醒的线程。
+notifyAll()：唤醒在此同步锁对象上等待的所有线程，只有当前线程放弃对同步锁对象的锁定，才可能执行被唤醒的线程。
 1.sleep和wait有什么区别？
-wait必须搭配synchronize一起使用，而sleep不需要；
-进入wait状态的线程能够被notify和notifyAll线程唤醒，而sleep状态的线程不能被notify方法唤醒；
-wait通常有条件地执行，线程会一直处于wait状态，直到某个条件变为真，但是sleep仅仅让你的线程进入睡眠状态；
-wait方法会释放对象锁，但sleep方法不会。
-在调用wait方法之后，线程会变为WATING状态，而调用sleep方法之后，线程会变为TIMED_WAITING状态。
-
-2..wait能不能在static方法中使用？为什么？
-因为wait方法是实例方法（非static方法），因此不能在static中使用
-
+   wait必须搭配synchronize一起使用，而sleep不需要；
+   进入wait状态的线程能够被notify和notifyAll线程唤醒，而sleep状态的线程不能被notify方法唤醒；
+   wait通常有条件地执行，线程会一直处于wait状态，直到某个条件变为真，但是sleep仅仅让你的线程进入睡眠状态；
+   wait方法会释放对象锁，但sleep方法不会。yield()方法也不会释放锁。
+   在调用wait方法之后，线程会变为WATING状态，而调用sleep方法之后，线程会变为TIMED_WAITING状态。
+2.wait能不能在static方法中使用？为什么？
+   因为wait方法是实例方法（非static方法），因此不能在static中使用
 3.notify是随机唤醒线程的么？
-不是。notify是顺序唤醒线程的，底层使用一个队列存储，而是“先进先出”的顺序唤醒!
+   不是。notify是顺序唤醒线程的，底层使用一个队列存储，而是“先进先出”的顺序唤醒
+注意：notify()/notifyAll()所属方法必须执行完毕，才会释放该对象锁，那么其他线程才可以持有该对象锁
+参考链接：https://www.cnblogs.com/xiaoxi/p/7581899.html
 
 
 ⚫interrupted与isInterrupted区别
