@@ -46,7 +46,7 @@ ArraryList是线程不安全的集合类，在并发编程时可能报错：Conc
 	PriorityBlockingQueue 支持优先级排序的无界阻塞队列
 	DelayQueue 使用优先级队列实现的延迟无界阻塞队列
 队列操作：
-方法类型	抛出异常	返回布尔	阻塞		超时
+方法类型	      抛出异常	   返回布尔	        阻塞	      超时
 插入		add(E e) 	offer(E e) 	put(E e) 	offer(E e,Time,TimeUnit)
 取出		remove() 	poll() 		take() 		poll(Time,TimeUnit)
 队首		element() 	peek() 		无			无
@@ -113,13 +113,13 @@ ReentrantLock类种有三个静态内部类Sync、NonfairSync、FairSync，Sync�
 			如果当前队列为空，那么执行方法enq()：以cas方式创建一个头节点，并以cas方式把当前节点放在头节点的后面，该方法会返回当前线程的node节点
 		2.3 方法3：acquireQueued(addWaiter(Node.EXCLUSIVE), arg)) ，通过一个无线循环再次尝试获取锁，首先判断前节点是不是头节点，如果是，并且tryAcquire(arg) 尝试获取到了锁，那么把头节点出队，并置空（等待被GC），然后把当前节点作为新的头节点。
 			2.3.1 如果前节点不是头节点。或者没有获取到锁，
-			2.3.2 那么执行方法：shouldParkAfterFailedAcquire(p, node) 判断前节点waitStatus状态，如果 =SIGNAL，返回true，如果>0说明前节点被取消,那么就过滤掉所有被取消的前驱节点，如果<-1 把前驱节点设置为SIGNAL
+			2.3.2 那么执行方法：shouldParkAfterFailedAcquire(p, node) 判断前节点waitStatus状态，如果 =SIGNAL(-1)，返回true，如果>0说明前节点被取消,那么就过滤掉所有被取消的前驱节点，如果<-1 把前驱节点设置为SIGNAL，如果等于-1，直接返回true
 			2.3.3 如果上个方法返回false那么就行下一次循环，如果是true那么执行parkAndCheckInterrupt()，把当前线程阻塞，并返回中断标志，并清除中断标志。先把中断请求记录下来，等获取到锁以后再重新去中断该线程
 			2.3.4 在这期间如果报错，会把当前节点的waitStatus设置成取消状态
 				AQS 为其定义了一个变量 waitStatus，根据这个变量值对相应节点进行相关的操作，waitStatus状态分为四种：
 				cancelled(1)：节点已取消、
-				signal(-1)：前节点为状态为SIGNAL，释放锁才会唤醒下一个节点、
-				condition(-2)：表示该线程在condition队列中阻塞，
+				signal(-1)：前节点的状态为SIGNAL，释放锁才会唤醒下一个节点、
+				condition(-2)：表示该线程在condition队列中阻塞，等其他线程调用了condition的signal之后
 				propagate(-3)：该线程以及后续线程进行无条件传播（CountDownLatch中有使用）共享模式下
 
 Lock.lock(true)的区别是,会先判断是否需要排队，如果头节点=尾节点，或者 头节点!=尾节 并且 头节点下一个节点不为空时，当前线程=即将执行节点的线程，说明不需要排队，后面逻辑一致
