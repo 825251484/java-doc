@@ -19,10 +19,25 @@ Article article1=(Article)class1.newInstance();
 
 
 ⚫ArraryList和Linklist的区别
-ArrayList ：动态数组。
+ArrayList ：动态数组。底层时Object[]数组
+jdk8初始容量是0，当第一次添加数据时，会初始化一个长度为10的数组，当添加元素的个数大于数组长度，Arrary将以1.5倍扩容数组，并且无加载因子，就是简单的copyof一个1.5倍的数组，最大容量为Integer.MAX-1-8 ：-8是为了存储一些数组自己的元素。
+并且线程不安全的，多线程同时修改数组时，会出现ArraryIndexOutOfBoundsException数组越界异常
+Fail-Fast机制：快速失败机制，
+	当多线程对集合进行结构上的修改时，或者迭代元素时直接调用自身方法改变集合结构而没有通知迭代器时，有可能触发快速失败机制，并抛出ConcurrentModificationException并发修改异常
+	modCount != expectModCount就会抛出并发修改异常
+jdk1.6默认，默认是new的时候，初始化一个长度10的数组，类似饿汉式，jdk1.6以后添加的时候才初始化一个长度为10的数组。类似于懒汉式
+
+
 LinkedList：双向链表。
-Vector：线程安全的动态数组。
+简介：接口的链接列表实现。实现所有可选的列表操作，并且允许所有元素（包括null），除了实现List接口外LinkedList类还为在列表的开头及结尾get、remove和insert元素提供了统一
+的命名方法。这些操作允许将链接列表用作堆栈、队列或双端队列。
+概括：双向链表结构，有序，可存重复元素，含有带索引的方法？，可以做堆，栈，双端队列，查询慢，增删快
+	特点：无默认值，无最大值限制，无扩容机制
+	get(index)根据索引查找元素。底层采用二分法，判断所以在前半段还是后半段，前半段从头节点遍历，后半段从尾节点遍历
 	
+Vector：线程安全的动态数组。底层使用sync，可以设置扩容因子
+
+
 ⚫hashmap和hashtable和concurrentHashmap区别？
 Hashtable：继承Dictionary，implements Map<K,V>
 	•底层数组+单向链表实现，无论key还是value都不能为null，synchronized线程安全，实现线程安全的方式是在修改数据时锁住整个HashTable效率低，ConcurrentHashMap做了相关优化
