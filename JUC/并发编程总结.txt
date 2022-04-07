@@ -101,6 +101,17 @@ SynchronusQueue
 FutureTask
 
 
+⚫并发编程常用的辅助类
+CountDownLatch：CountDownLatch 内部维护了⼀个计数器，只有当计数器==0时，某些线程才会停⽌阻塞，开始执⾏，
+CountDownLatch 主要有两个⽅法， countDown() 来让计数器-1， await() 来让线程阻塞。当count==0 时，阻塞线程⾃动唤醒。
+
+CyclicBarrier：CountDownLatch 是减，⽽CyclicBarrier 是加，理解了CountDownLatch ， CyclicBarrier 就很容易
+
+Semaphore：CountDownLatch 的问题是不能复⽤。⽐如count=3 ，那么减到0，就不能继续操作了。
+Semaphore 可以解决这个问题，⽐如6辆⻋3个停⻋位，对于CountDownLatch 只能停3辆⻋，⽽Semaphore 可以停6辆⻋，⻋位空出来后，其它⻋可以占有，这就涉及到了
+Semaphore.accquire()：获取信号量（信号量-1），或者阻塞阻塞，直到获取到信号量。（或者使用tryAcquire(long timeout, TimeUnit unit)阻塞超时方法）
+Semaphore.release() ：释放信号量（信号量+1），然后唤醒等待的线程
+
 
 ⚫ReentrantLock底层原理？
 ReentrantLock类种有三个静态内部类Sync、NonfairSync、FairSync，Sync继承了AbstractQueuedSynchronizer（AQS），NonfairSync和FairSync继承Sync，当我们使用Lock.lock()方法时默认使用的都是非公平锁中的lock方法。
@@ -162,8 +173,15 @@ ThreadPoolExecutor：推荐使用
 4.核心线程数的计算：参考公式：CPU核数 /（1 - 阻塞系数 ） 阻塞系数在 0.8~0.9 之间
 
 自定义线程池：
-	自定义拒绝策略：实现接口RejectedExecutionHandle
+	自定义拒绝策略：实现接口RejectedExecutionHandle重写rejectedExecution(Runnable r,ThreadPoolExecutor executor)
+	public void rejectedExecution(Runnable r,ThreadPoolExecutor executor){
+	  throw new BusinessException("当前系统繁忙，请稍后再试");
+	}
 	自定义线程工厂：实现接口ThreadFactory  重写newThread方法 ，可自定义线程名称  -----------简历
+	public Thread newThread(){
+	  string threadName = "工程名"+ automicInt.getAndIncrement();
+	  return new Thread(r,threadName);
+	}
 
 
 ⚫生产中如何定位死锁？
@@ -190,12 +208,12 @@ LockSupport不用持有锁块，不用加锁，程序性能好
 
 ⚫线程之间通信的问题
 https://www.cnblogs.com/xiaoxi/p/7581899.html
-1.sleep 和 wait 有什么区别？
-wait必须搭配synchronize一起使用，而sleep 不需要；
+1.sleep和wait有什么区别？
+wait必须搭配synchronize一起使用，而sleep不需要；
 进入wait状态的线程能够被notify和notifyAll线程唤醒，而sleep状态的线程不能被notify方法唤醒；
 wait通常有条件地执行，线程会一直处于wait状态，直到某个条件变为真，但是sleep仅仅让你的线程进入睡眠状态；
 wait方法会释放对象锁，但sleep方法不会。
-*在调用wait方法之后，线程会变为WATING状态，而调用sleep方法之后，线程会变为TIMED_WAITING状态。
+在调用wait方法之后，线程会变为WATING状态，而调用sleep方法之后，线程会变为TIMED_WAITING状态。
 
 2..wait能不能在static方法中使用？为什么？
 因为wait方法是实例方法（非static方法），因此不能在static中使用
