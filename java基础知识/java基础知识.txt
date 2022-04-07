@@ -47,8 +47,7 @@ Hashtable：继承Dictionary，implements Map<K,V>
 Hashmap: 继承 AbstractMap，implements Map<K,V>
 	•特点：无序，线程不安全，可以存储null键和null值
 	•结构：	
-		数组+单向链表
-		数组＋单向链表+红黑树（链表长度超过8，并且数组得长度大于64，才会出现红黑树结构）
+		数组+单向链表 || 数组＋单向链表+红黑树
 		数组：Node<K,V>[] tab
 		链表：Node<K,V>
 		红黑树：TreeNode<K,V>
