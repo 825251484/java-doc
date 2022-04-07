@@ -114,7 +114,8 @@ ReentrantLock类种有三个静态内部类Sync、NonfairSync、FairSync，Sync�
 		2.3 方法3：acquireQueued(addWaiter(Node.EXCLUSIVE), arg)) ，通过一个无线循环再次尝试获取锁，首先判断前节点是不是头节点，如果是，并且tryAcquire(arg) 尝试获取到了锁，那么把头节点出队，并置空（等待被GC），然后把当前节点作为新的头节点。
 			2.3.1 如果前节点不是头节点。或者没有获取到锁，
 			2.3.2 那么执行方法：shouldParkAfterFailedAcquire(p, node) 判断前节点waitStatus状态，如果 =SIGNAL(-1)，返回true，如果>0说明前节点被取消,那么就过滤掉所有被取消的前驱节点，如果<-1 把前驱节点设置为SIGNAL，如果等于-1，直接返回true
-			2.3.3 如果上个方法返回false那么就行下一次循环，如果是true那么执行parkAndCheckInterrupt()，把当前线程阻塞，并返回中断标志，并清除中断标志。先把中断请求记录下来，等获取到锁以后再重新去中断该线程
+			2.3.3 如果上个方法返回false那么就行下一次循环，如果是true那么执行parkAndCheckInterrupt()，把当前线程阻塞，并返回中断标志，如果线程没有被中断过，那么返回的就是false，并清除中断标志。如果返回的中断标记是true，先把中断请求记录下来，等获取到锁以后再重新去中断该线程
+			   注意：如果线程在等待过程中被中断过，它是不响应的。只是获取资源后才再进行自我中断selfInterrupt()，将中断补上。
 			2.3.4 在这期间如果报错，会把当前节点的waitStatus设置成取消状态
 				AQS 为其定义了一个变量 waitStatus，根据这个变量值对相应节点进行相关的操作，waitStatus状态分为四种：
 				cancelled(1)：节点已取消、
@@ -123,8 +124,8 @@ ReentrantLock类种有三个静态内部类Sync、NonfairSync、FairSync，Sync�
 				propagate(-3)：该线程以及后续线程进行无条件传播（CountDownLatch中有使用）共享模式下
 
 Lock.lock(true)的区别是,会先判断是否需要排队，如果头节点=尾节点，或者 头节点!=尾节 并且 头节点下一个节点不为空时，当前线程=即将执行节点的线程，说明不需要排队，后面逻辑一致
-Lock.unlock()的底层实现逻辑：先判断持有锁的线程是不是当前线程，如果不是抛出异常，如果是把state减一。并把当前持有独占锁的线程对象置空，然后唤醒下一个不是取消状态的节点
-备注：队列中的第一个节点是不参与排队的，它持有着同步状态，head 结点为虚结点，它只代表当前有线程占用了state，至于占用state的是哪个线程，其实是调用了上文的setExclusiveOwnerThread(current)
+Lock.unlock()的底层实现逻辑：先判断持有锁的线程是不是当前线程，如果不是抛出异常，如果是把state减一。并把当前持有独占锁的线程对象置空，然后唤醒（unpark）下一个不是取消状态的节点
+备注：队列中的第一个节点是不参与排队的，它持有着同步状态，head结点为虚结点，它只代表当前有线程占用了state，至于占用state的是哪个线程，其实是调用了上文的setExclusiveOwnerThread(current)
 
 通过以上原理我们也可以基于AQS的原理自定义实现锁，例如我们可以实现一个不可重入的互斥锁，自己创建一个类。在该类中创建一个静态内部类实现AQS，重写AQS的方法，
 
