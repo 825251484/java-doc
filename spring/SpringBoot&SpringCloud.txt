@@ -17,8 +17,6 @@ springboot启动首先会加载一系列的bean和配置类。然后run方法中
 	然后调用run方法，该方法主要做一些：发布事件、配置环境参数、打印banner、创建ApplicationContext应用上下文、刷新容器、打印日志等等
 
 
-
-
 ⚫什么是spring cloud
 springcloud 为开发人员提供了在分布式系统中快速构建一些常见模式的工具，是一系列框架【技术】的有序集合（例如配置管理、服务发现、断路器、智能路由、微代理、控制总线、一次性令牌、全局锁、领导选举、分布式会话、集群状态），
 通过 Spring Boot 风格进行再封装屏蔽掉了复杂的配置和实现原理，最终给开发者提供了一套简单易懂、易部署和易维护的分布式系统开发工具包，缺点：版本不稳定，使用技术成本高（避免大炮轰蚊子）
@@ -27,11 +25,7 @@ Spring Cloud 中文网：https://springcloud.cc/ Spring Cloud
 中国社区 : http://springcloud.cn/
 
 
-
-
 ⚫springcloud的了解  相对于springmvc的区别
-
-
 
 
 ⚫config配置中心  还有什么配置中心，  springcloud是怎么找到配置文件的
@@ -40,7 +34,6 @@ Spring Cloud 中文网：https://springcloud.cc/ Spring Cloud
 文件修改会触发发送post请求给配置中心服务端，服务端接到请求，然后将消息发送给消息总线（消息队列），消息总线再通知客户端，客户端请求服务端获取最新的配置文件/客户端启动时也会主动拉去最新配置
 
 nacos congif无需消息总线，搭建成本和复杂都比spring config低很多。nacos服务端更新配置文件后，通过pull长轮询的方式将最新配置文件推给客户端
-
 
 
 ⚫Eureka注册中心客户端
@@ -70,7 +63,6 @@ nacos congif无需消息总线，搭建成本和复杂都比spring config低很�
 	但是也可能保护了真正出现了问题的微服务。这个时候，其他的微服务调用这个服务时，可能就会得到一个错误的结果，这种情况只能在调用端自行解决，比如通过Hystrix进行隔离熔断。
 
 
-
 ⚫consul
 
 
@@ -92,8 +84,6 @@ ribbon实现的关键点是为ribbon定制的RestTemplate，ribbon利用了RestT
 负载均衡的基本实现就是利用applicationName从服务注册中心获取可用的服务地址列表，然后通过一定算法负载，决定使用哪一个服务地址来进行http调用。
 
 由于ribbon是netflix公司的所以，sprincloud已经不推荐使用，并自己开发spring cloud loadbalancer替代ribbon，原理基本一致
-
-
 
 
 ⚫feign：官网：声明式rest客户端，使服务之间的调用就像调用内部接口一样简单，并Feign可以与Eureka和Ribbon组合使用以支持负载均衡。
