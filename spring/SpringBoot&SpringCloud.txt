@@ -25,14 +25,10 @@ Spring Cloud 中文网：https://springcloud.cc/ Spring Cloud
 中国社区 : http://springcloud.cn/
 
 
-⚫springcloud的了解  相对于springmvc的区别
-
-
-⚫config配置中心  还有什么配置中心，  springcloud是怎么找到配置文件的
+⚫spring cloud config配置中心  还有什么配置中心，  springcloud是怎么找到配置文件的
 如果我们项目在运行时，更改了配置文件，必须重启服务才能生效，所以配置中心可以解决我们重启服务的问题，帮我们动态的更新配置文件，不需在重启，
-其原理是，spring config配置中心的配置是放在git仓库的，当然可以用数据库或者本地文件存储，当你放在git仓库时，首先我们要更改配置文件然后将文件推送到git仓库，
+其原理是，spring cloud config配置中心的配置是放在git仓库的，当然可以用数据库或者本地文件存储，当你放在git仓库时，首先我们要更改配置文件然后将文件推送到git仓库，
 文件修改会触发发送post请求给配置中心服务端，服务端接到请求，然后将消息发送给消息总线（消息队列），消息总线再通知客户端，客户端请求服务端获取最新的配置文件/客户端启动时也会主动拉去最新配置
-
 nacos congif无需消息总线，搭建成本和复杂都比spring config低很多。nacos服务端更新配置文件后，通过pull长轮询的方式将最新配置文件推给客户端
 
 
