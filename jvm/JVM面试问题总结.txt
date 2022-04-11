@@ -15,7 +15,7 @@ final，static，private，构造方法，因为这些方法在编译期间就�
 
 ⚫jvm调优工具：
 jps查看进程id
-jstat 查看java程序运行时，堆信息得相关情况
+jstat 查看java程序运行时，堆信息得相关情况，jstat -gc pid可以看到java进程的内存和GC各个区的使用情况
 jmap用来查看堆内存使用状况 命令：jmap -heap pid 描述：显示Java堆详细信息
 jstack可以查看线程得使用情况。例如死锁，死循环。请求外部资源导致长时间等待得问题，还有线程阻塞和等待得情况
 VisualVM能够运行在jdk1.6以上版本上，性能分析工具，，可用于：cpu性能分析，内存性能分析，线程性能分析
