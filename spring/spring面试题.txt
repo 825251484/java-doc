@@ -165,9 +165,9 @@ public void contextInitialized(ServletContextEvent event) {
 	public void contextInitialized(ServletContextEvent event) {
 		initWebApplicationContext(event.getServletContext());
 	}
-2.initWebApplicationContext()方法，该方法负责创建Spring容器（DefaultListableBeanFactory）
+2.initWebApplicationContext()方法，该方法负责创建Spring容器，初始化容器
 	initWebApplicationContext(ServletContext servletContext) {
-		createWebApplicationContext(servletContext); // 创建 Spring 容器
+		createWebApplicationContext(servletContext); // 创建 Spring 容器，该方法负责创建Spring容器（DefaultListableBeanFactory）
 		configureAndRefreshWebApplicationContext(cwac, servletContext); //该方法中调用最终初始化Bean的refresh()方法，Spring容器初始化单例Bean的实例，
 	}
 	执行AbstractApplicationContext # refresh()方法（控制反转）
