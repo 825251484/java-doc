@@ -21,6 +21,7 @@ spring核心模块：
 
 
 
+
 ⚫jdk动态代理的原理和CGLIB的原理，以及两者的区别
 JDK动态代理
 	使用jdk动态代理，首先被代理的类（目标类），要实现一个接口，然后JDK提供Proxy.newProxyInstance方法来创建代理类，并创建一个类实现InvocationHandler中的invoke方法，在该方法中实现增强功能。
@@ -186,4 +187,195 @@ public void contextInitialized(ServletContextEvent event) {
 
 备注：
 	BeanFactory 接口位于类结构树的顶端，它最主要的方法就是getBean(String beanName)，该方法从容器中返回特定名称的Bean，BeanFactory的功能通过其他的接口得到不断扩展：
-	BeanDefinition ：Spring配置文件中每一个<bean>节点元素在Spring容器里都通过一个BeanDefinition对象表示,用来管理bean，包含bean配置信息，例如class对象，作用域：
+	BeanDefinition ：Spring配置文件中每一个<bean>节点元素在Spring容器里都通过一个BeanDefinition对象表示,用来管理bean，包含bean配置信息，例如class对象，作用域：单例多例，是否懒加载等属性。通过BeanDefinitionRegistry#registerBeanDefinition(String beanName, BeanDefinition beanDefinition) 将BeanDefinition注册到工厂中，
+	BeanFactoryPostProcessor 操作的是BeanDefinition（可以对BeanDefinition注册之后，bean实例化之前对BeanDefinition进行处理）
+
+	registerBeanPostProcessors 主要作用是将BeanPostProcessor注册到容器(BeanFactory)中，实现BeanPostProcessor接口的有很多后置处理器。这一步会实例化所有的后置处理器。
+	仅仅实例化，不会执行，这些后置处理器，在后面代码会用到，例如AutowiredAnnotationBeanPostProcessor（BeanPostProcessor作用：对bean的一些处理，前置后置处理）
+
+
+
+⚫BeanFactory & ApplicationContext 的联系和区别
+BeanFactory：是顶级容器，Spring中相当古老的Factory了，比如说XmlBeanFactory就是一种相当典型的BeanFactory。所以原始的BeanFactory主要提供getBean方法，无法支持诸如AOP、Web应用等其他功能，需要实现类帮组其完善。一搬在spring框架内部使用
+ApplicationContexty：继承了BeanFactory，我们习惯称为上下文，拥有BeanFactory所有功能的同时，还提供了更多的扩展功能：
+	1.实现MessageSource，因此支持国际化。   
+	2.加载多个配置文件 
+	3.实现ApplicationEventPublisher提供事件机制 
+	4.实现ResourcePatternResolver，提供资源访问，如URL和文件
+但是这还不是主要区别，主要区别在于BeanFacotry是延迟加载，会在你第一次调用getBean时初始化
+而ApplicationContext会在初始化的时候就加载并且检查，这样的好处是可以及时检查依赖是否完全注入；所以通常来说我们会选择使用ApplicationContext。
+
+
+
+⚫BeanFactory和FactoryBean的区别
+BeanFactory：是个Factory，也就是IOC容器或对象工厂，FactoryBean是个Bean。在Spring中，所有的Bean都是由BeanFactory(也就是IOC容器)来进行管理的。
+FactoryBean：这个Bean不是简单的Bean，而是一个能生产或者修饰对象生成的工厂Bean,它的实现与设计模式中的工厂模式和修饰器模式类似
+
+
+
+⚫@Autowired流程
+在容器初始化时会调用AbstractApplicationContext#refresh方法，在容器初始化过程中，在registerBeanPostProcessors这个方法中会实例化所有的后置处理器，
+其中有一个叫AutowiredAnnotationBeanPostProcessor的后置处理器，该处理器实现了BeanPostProcessor，该后置处理器的作用就是扫描bean中带有@Autowired注解的变量，方法，或者构造器，
+在我们创建bean的时候会执行AbstractAutowireCapableBeanFactory#doCreateBean方法，该方法中有一个方法是applyMergedBeanDefinitionPostProcessors，这个方法就是对实例化后的bean进行一些后置处理其中包括@Resource@Autowired@PostConstruct一些处理
+这里一个用到了策略模式，会获取到所有实现BeanPostProcessorde接口的类，然后按顺序执行每个实现类中的方法。其中AutowiredAnnotationBeanPostProcessor实现的方法中，
+会通过反射获取，含有@Autowired注解的方法或者变量，放入InjectedElement对象中（：就是每一个被@Autowired标注的方法或者属性，都用一个InjectedElement来封装），那么一个类中所有注入属性方法封装到一个InjectedElement集合中，
+最后放到一个新创建的InjectionMetadata中，该对象中含有class对象和InjectedElement集合，最后会对该集合检查，去重，重新赋值给InjectionMetadata
+在执行doCreateBean方法中执行到populateBean方法时，该方法会通过反射去处理，进行属性填充，会判断是否注入，以及自动装配的方式的判断等（Spring整合Mybatis中，将Mapper的自动装配类型改成了BY_TYPE，// 于是在Mapper得以在这里被填充SqlSessionTemplate,SqlSessionFactory属性）
+最后将该bean注入到对应得类中
+
+getBean() -> 
+	doGetBean() -> //真正实现向IoC容器获取Bean的功能，也是触发依赖注入的地方
+		createBean()->
+			doCreateBean()->
+				applyMergedBeanDefinitionPostProcessors()->
+					postProcessMergedBeanDefinition()-> 
+						InjectionMetadata metadata = findAutowiringMetadata(beanName, beanType, null);   InjectionMetadata类中包含了哪些需要注入的元素及元素要注入到哪个目标类中
+						
+
+
+
+⚫spring整合mybatis，为什么mapper不加注解也可以？
+因为启动类中注解@MapperScan，会扫描指定包下的mapper类，
+@MapperScan注解类上一个注解@Import(MapperScannerRegistrar.class)，在准备工厂阶段，会把 @Import引入的类当作配置类，后期通过Spring创建这个bean
+该MapperScannerRegistrar类实现了ImportBeanDefinitionRegistrar接口，该接口中参数中提供了BeanDefinitionRegistry类，该类可以实现向bean工厂注入BeanDefinition
+那么接口是怎么实例化的呢，通过代理把接口代理成mapperFactoryBean，那么就可以实例化了。剩下就是自动装配了，通过by_type的当时装配
+
+1.IOC 通过注解扫描指定包名，在初始化的时候调用@MapperScan 注解中指定的类最终执行 doScan 方法，将所有的 Mapper 接口的 Bean 定义都改成 FactoryBean 的子类 MapperFactoryBean，并将该 SqlSessionFactory 和 SqlSessionTemplate 添加到该类中。
+2.Spring IOC 在实例化该 Bean 的时候，需要传入接口类型，并将 SqlSessionFactory 和 SqlSessionTemplate 注入到该 Bean 中。并调用 configuration 的 addMapper 方法，解析配置文件。
+3.当调用 MapperFactoryBean 的 getObject 方法的时候，事实上是调用 SqSession 的 getMapper 方法，而这个方法会返回一个动态代理对象。所有对这个对象的方法调用都是底层的 SqlSession 的方法。
+
+
+
+⚫spring什么时自动装配，有哪些方式，类型？
+自动装配就是让应用程序上下文为你找出依赖项的过程。说的通俗一点，就是Spring会在上下文中自动查找，并自动给bean装配与其关联的属性！
+spring中实现自动装配的方式有两种，一种是通过xml文件、另一种是通过注解。下面将为大家介绍这两种方式实现自动装配。
+
+
+
+⚫spring源码用到的设计模式，举例说明
+1.refresh()模板方法
+2.setPropertyValues 方法实现的，该方法使用了委派模式。(不在23种设计模式当中)
+3.BeanPostProcessor后置处理器使用策略模式  @PostConstruct、@PreDestory、@Autowired、@Resource、@Value  五个注解对应五个处理器。
+	@PostConstruct、@PreDestory： InitDestroyAnnotationBeanPostProcessor
+	@Resource：CommonAnnotationBeanPostProcessor
+	@Autowired、@Value：AutowiredAnnotationBeanPostProcessor
+	针对不同的注解选择不同的策略，每个策略对应一个后置处理器
+
+4.bean实例化策略模式：策略模式的类InstantiationStrategy 来创建bean。InstantiationStrategy有两个实现类
+	SimpleInstantiationStrategy：其功能就如同类名一样，只是简单的根据构造函数和参数来创建bean
+	CglibSubclassingInstantiationStrategy：在SimpleInstantiationStrategy的基础上，添加了根据Cglib来动态生成子类的功能。
+
+5.责任链模式，populateBean方法中
+		// 给InstantiationAwareBeanPostProcessors最后一次机会在属性注入前修改Bean的属性值
+		// 采用职责链的方式对所有实现了InstantiationAwareBeanPostProcessor的后置处理器调用.
+        // 直到某个InstantiationAwareBeanPostProcessor在postProcessAfterInstantiation中返回了false
+        if (!mbd.isSynthetic() && hasInstantiationAwareBeanPostProcessors()) {
+            for (BeanPostProcessor bp : getBeanPostProcessors()) {
+                if (bp instanceof InstantiationAwareBeanPostProcessor) {
+                    InstantiationAwareBeanPostProcessor ibp = (InstantiationAwareBeanPostProcessor) bp;
+                    // 如果返回了false,直接中断,不进行下面的操作
+                    if (!ibp.postProcessAfterInstantiation(bw.getWrappedInstance(), beanName)) {
+                        return;
+                    }
+                }
+            }
+        }
+
+6.IOC就是工厂模式：Spring使用工厂模式可以通过 BeanFactory 或 ApplicationContext 创建 bean 对象
+7.适配器（Adapter）:将一个类的接口转换成客户希望的另外一个接口。Adapter模式使得原本由于接口不兼容而不能一起工作的那些类可以一起工作。
+	由于Advisor链需要的是MethodInterceptor（拦截器）对象，所以每一个Advisor中的Advice都要适配成对应的MethodInterceptor对象。
+	Spring AOP中的增强和通知Advice使用了适配器模式,接口是AdvisorAdapter
+	常用的Advice类型包括:
+		BeforeAdvice: 前置通知. 目标方法调用前增强
+		AfterAdvice: 后置通知. 目标方法调用后增强
+		AfterReturningAdvice: 目标方法执行结束之后 ,return之前	
+	每个通知Advice都有对应的拦截器:
+		BeforeAdvice - MethodBeforeAdviceInterceptor
+		AfterAdvice - MethodAfterAdviceInterceptor
+		AfterReturningAdvice - MethodAfterReturningAdviceInterceptor
+	Spring中预定义的通知要通过对应的适配器,适配成为MethodInterceptor接口类型的对象
+
+8.包装器（Decorator）:动态地给一个对象添加一些额外的职责。Spring中用到的包装器模式在类名上有两种表现：一种是类名中含有Wrapper
+	BeanWrapper其实就是一个Bean的包装器，它对Bean包装的目的是为了能操纵Bean中的属性，所以它同时需要具备获取以及设置Bean中的属性能力，所以它也必须是一个属性访问器（PropertyAccessor），另外为了将各种不同类型的配置数据绑定到Bean的属性上，那么它还得具备属性转换的能力，因为它还得是一个类型转换器
+	在ioc中获取被包装bean的属性，属性值，属性描述等，同时BeanWrapperImpl实现类提供一些属性编辑器，支持不同类型的转换
+9.观察者模式：spring事件机制中有三个角色，
+	事件：ApplicationEvent就是事件，继承jdk中的EventObject，spring中所有的事件都要继承ApplicationEvent，并且通过source得到事件源，该类的实现类ApplicationContextEvent表示ApplicaitonContext的容器事件
+	事件源（事件发布）：spring底层组件ApplicationEventPublisher提供了发布事件的方法publishEvent(ApplicationEvent event);，发布事件，监听者就能监听到消息，即"通知"观察者。ApplicationContext继承了该类，所以拥有事件发布能力
+	事件监听器：ApplicationListener（抽象类，继承jdk的EventListener）就是监听器，spring中所有监听器都要继承该类，这个接口只有一个onApplicationEvent()方法，该方法接受一个ApplicationEvent或其子类对象作为参数
+				在方法体中,可以通过不同对Event类的判断来进行相应的处理（if(event instanceof MyEvent)），当事件触发时，所有的监听器就会收到消息
+
+9.单例模式，原型模式，代理模式
+参考：https://juejin.cn/post/6844903654625902606
+
+⚫spring bean作用域：
+① singleton：单例模式，是默认作用域，不管收到多少 Bean 请求每个容器中只有一个唯一的 Bean 实例。
+② prototype：原型模式，和 singleton 相反，每次 Bean 请求都会创建一个新的实例。
+③ request：每次 HTTP 请求都会创建一个新的 Bean 并把它放到 request 域中，在请求完成后 Bean 会失效并被垃圾收集器回收。
+④ session：和 request 类似，确保每个 session 中有一个 Bean 实例，session 过期后 bean 会随之失效。
+⑤ global session：当应用部署在 Portlet 容器中时，如果想让所有 Portlet 共用全局存储变量，那么这个变量需要存储在 global session 中。
+
+7.观察者模式 ：springmvc在启动后，servlet容器也会启动，这时会发布ServletContextEvent事件，ContextLoaderListener监听器会监听到该事件，监听到该事件后，会初始化springioc容器
+
+
+⚫Bean的生命周期
+见详细文档
+
+
+⚫@Autowired和@Resource区别。
+文章：https://www.zhihu.com/question/39356740/answer/1907479772
+@Autowired 是spring自带的注解，默认以类型的方式装配，找不到required = true会抛异常，也可以搭配@Qualifier通过name的方式匹配，或者搭配@Primary：自动装配时当出现多个Bean候选者时，被注解为@Primary的Bean将作为首选者，否则将抛出异常
+还可以设置required属性为false。允许依赖的对象为空，@Autowired能够用在：构造器、方法、参数、成员变量和注解上，spring4.0以上如果type一样的类。会按照name去查找，所以注入类型相同，名字不同不会报错
+
+@Resource是JDK中的注解，默认以name的方式装配，@Resource能用在：类、成员变量和方法上。
+如果指定type，那就按类型装配，找不到抛异常
+如果指定name，那就按名称装配，找不到或者找到多个，都抛异常
+如果指定name和type，那就按两个匹配唯一的bean，找不到抛异常
+如果都没指定，那就按name装配，找不到就按类型匹配，找不到抛异常
+
+
+
+⚫为什么不推荐使用@Autowired、
+@Autowired是spring中的注解，如果换一个ioc框架。那么@Autowired就不可以使用，但是@Resource是jdk中，只要不换开发语言，就可以使用
+
+
+
+⚫为什么不推荐使用属性注入，推荐使用构造器（强制依赖），setter注入（可选、可变的依赖）？
+1.在一个类的构造器中调用注入的bean的方法，会报空指针，因为你先执行构造器，才会执行属性注入，
+2.可能注入的对象可能是空，过于依赖注入容器了，当没有启动整个依赖容器时，这个类就不能运转，在反射时无法提供这个类需要的依赖
+3.如果这个类使用了依赖注入的类，那么这个类摆脱了这几个依赖必须也能正常运行。然而使用变量注入的方式是不能保证这点的
+
+
+
+⚫spring常见得注解及功能
+@Configurable  标注该类为Spring中的配置类
+@ComponentScan 自动扫描包
+@Bean 创建对象的方法 可以通过一个返回值为该对象的方法去创建该对象，并通过构造器为该对象的属性进行赋值。@Bean public Product product1() {return new Product("张三","hashd",1);}
+@TypeFilter 可以过滤一些资源不让它加载到ioc容器中。它的使用要在@ComponentScan这个注解中去使用
+@Scope 设置组件作用域 另外scope还有prototype、request、session、global session作用域。
+@Lazy-bean 懒加载针对单例bean
+@Conditional 按照条件注册
+@Import 给容易快速导入组件
+@FactoryBean 
+
+
+⚫spring bean作用域：
+singleton单例模式，全局有且仅有一个实例。（默认值）
+prototype原型模式，每次获取Bean的时候会有一个新的实例。
+request表示该针对每一次HTTP请求都会产生一个新的bean，同时该bean仅在当前HTTP
+session作用域表示该针对每一次HTTP请求都会产生一个新的bean，同时该bean仅在当前HTTP session内有效
+global session作用域类似于标准的HTTP Session作用域，不过它仅仅在基于portlet的web应用中才有意义
+
+spring可以通过xml方式和注解两种途径去注入对象 
+
+每种途径中都可以使用setter注入和构造器注入，注解方式可以用Field 字段注入(@Autowired private ss ss;)
+@Autowired 注解可以标注给属性，方法，构造器，参数
+
+
+
+⚫spring的设计好处
+Spring的高明之处在于，它使用众多接口描绘出了所有装置的蓝图，构建好Spring的骨架，继而通过继承体系层层推演，不断丰富，最终让Spring成为有血有肉的完整的框架。所以查看Spring框架的源码时，有两条清晰可见的脉络：
+1）接口层描述了容器的重要组件及组件间的协作关系；
+2）继承体系逐步实现组件的各项功能。
+接口层清晰地勾勒出Spring框架的高层功能，框架脉络呼之欲出。有了接口层抽象的描述后，不但Spring自己可以提供具体的实现，任何第三方组织也可以提供不同实现， 可以说Spring完善的接口层使框架的扩展性得到了很好的保证。
+纵向继承体系的逐步扩展，分步骤地实现框架的功能，这种实现方案保证了框架功能不会堆积在某些类的身上，造成过重的代码逻辑负载，框架的复杂度被完美地分解开了。
+
