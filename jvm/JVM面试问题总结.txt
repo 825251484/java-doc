@@ -15,8 +15,8 @@ final，static，private，构造方法，因为这些方法在编译期间就�
 
 ⚫jvm调优工具：
 jps查看进程id
-jstat 查看java程序运行时，堆信息得相关情况，jstat -gc pid可以看到java进程的内存和GC各个区的使用情况
-jmap用来查看堆内存使用状况 命令：jmap -heap pid 描述：显示Java堆详细信息
+jstat 查看java程序运行时，堆信息得相关情况，jstat -gc pid 显示gc信息，每个eden，幸存区，老年代，元空间占用情况，使用情况
+jmap用来查看堆内存使用状况 命令：jmap -heap pid 显示GC算法，堆配置信息，以及各区域的使用情况
 jstack可以查看线程得使用情况。例如死锁，死循环。请求外部资源导致长时间等待得问题，还有线程阻塞和等待得情况
 VisualVM能够运行在jdk1.6以上版本上，性能分析工具，，可用于：cpu性能分析，内存性能分析，线程性能分析
 
@@ -24,7 +24,7 @@ VisualVM能够运行在jdk1.6以上版本上，性能分析工具，，可用于
 ⚫生产中如何定位内存溢出，并解决？
 JVM中有一个命令参数。可以在发生OOM时，记录内存快照信息并生成一个dump文件，我们只需要分析堆内存快照就行了， visualvm分析dump文件,主动dump文件会造成STW，所以设置参数，让系统出现oom时自动dump
 java进程启动时加上开启此功能的启动参数，如下:
-  java -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/home/app.hprof -jar app.jar
+java -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/home/app.hprof -jar app.jar
 
 
 ⚫jvm常用的参数：
