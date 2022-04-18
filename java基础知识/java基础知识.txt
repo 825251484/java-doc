@@ -33,9 +33,10 @@ LinkedList：双向链表。
 的命名方法。这些操作允许将链接列表用作堆栈、队列或双端队列。
 概括：双向链表结构，有序，可存重复元素，含有带索引的方法？，可以做堆，栈，双端队列，查询慢，增删快
 	特点：无默认值，无最大值限制，无扩容机制
-	get(index)根据索引查找元素。底层采用二分法，判断所以在前半段还是后半段，前半段从头节点遍历，后半段从尾节点遍历
+	get(index)根据索引查找元素。底层采用二分法，判断索引在前半段还是后半段，前半段从头节点遍历，后半段从尾节点遍历
 	
 Vector：线程安全的动态数组。底层使用sync，可以设置扩容因子
+CopyOnWriteArraryList:
 
 
 ⚫hashmap和hashtable和concurrentHashmap区别？
@@ -137,6 +138,15 @@ ConcurrentHashmap：键值都不能为空，线程安全，支持并发
 
 synchronizedMap：
 	•Collections 类中存在一个静态方法：synchronizedMap()，该方法创建了一个线程安全的 Map 对象，并把它作为一个封装的对象来返回，synchronizedMap()其实就是对Map的方法加层同步锁，
+TreeMap：红黑树+数组，排序Comparator实现
+
+
+⚫hashSet和treeSet区别
+TreeSet底层使用treeMap的key来存储值，value固定存储final Object对象
+hashSet使用hashMap
+
+
+⚫红黑树和平衡二叉树的区别
 
 
 ⚫JAVA8,9,10,11,12新特性总结
