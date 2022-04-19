@@ -155,7 +155,7 @@ hashSet使用hashMap
 ⚫JAVA8,9,10,11,12新特性总结
 java8函数式编程：https://juejin.cn/post/6844904184953700360
 JAVA8特性：
-  1、函数式接口：
+  1、函数式接口：函数式接口(Functional Interface)就是一个有且仅有一个抽象方法，但是可以有多个非抽象方法的接口。函数式接口可以被隐式转换为 lambda 表达式。：Runnable，Callable，Comparator
 	Supplier<T> 生产者：无输入，生产一个T 类型的值；接口仅包含一个无参的方法:
 	T get() 。用来获取一个泛型参数指定类型的对象数据
 	Consumer<T> 消费者：输入一个T 类型的值，无输出；对给定参数执行消费操作
