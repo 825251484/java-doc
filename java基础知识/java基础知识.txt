@@ -128,17 +128,20 @@ Hashmap: 继承 AbstractMap，implements Map<K,V>
 			毕竟树的查询效率O(logn)也比不上一个正常HashMap的O(1)的效率。
 		3.jdk8在put时进行初始化一个16的数组
 	
-	•
-	LinkHashMap：有序：存入顺序=取出顺序
-	TreeMap：不仅有序，还自带排序功能，默认升序。红黑树
+
 	
 ConcurrentHashmap：键值都不能为空，线程安全，支持并发
 	•是一个Segment数组，它通过继承ReentrantLock来进行加锁，通过每次锁住一个segment来保证每个segment内的操作的线程安全性从而实现全局线程安全
 		1.8以后，取消了segment分段设计，采用与hashmap类似的结构，直接使用Node数组来保存数据，使用Node数组元素作为锁的粒度，从而实现了对每一行数据进行加锁,并发控制使用Synchronized和CAS来操作
+jdk1.7 Segment数组 + hashEntry数组 + 链表：每一个segment数字节点对应一个hashEntry数组，而每个hashEntry节点对应一个链表，那么添加数组的时候会用ReentrantLock锁住整个segment数组节点。所以称这种方式为分段锁
+jdk1.8 node数组+链表+红黑树：当链表长度大于8。数组长度大于64那么升级为红黑树。在结构上去掉了Segment，添加元素，容器是否为空，如果为空就通过volatile+cas来初始化，如果容器不为空。就要
+根据数组下标判断，该位置使用有元素，如果该位置没有元素。那就通过cas添加节点。如果有元素就通过synlaichronized加锁，把当前数组对应的链表（桶）加锁，然后遍历链表，将元素追加在链表尾部，或者是key重复就替换。
+ 
 
 synchronizedMap：
 	•Collections 类中存在一个静态方法：synchronizedMap()，该方法创建了一个线程安全的 Map 对象，并把它作为一个封装的对象来返回，synchronizedMap()其实就是对Map的方法加层同步锁，
-TreeMap：红黑树+数组，排序Comparator实现
+LinkHashMap：有序：存入顺序=取出顺序
+TreeMap：红黑树+数组，排序Comparator实现，不仅有序，还自带排序功能，默认升序。红黑树，
 
 
 ⚫hashSet和treeSet区别
