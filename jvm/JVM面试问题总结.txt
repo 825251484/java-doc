@@ -206,7 +206,8 @@ public void gc(){
 ⚫ThreadLocal可能造成内存泄漏的原因？
 ThreadLocal类中有一个静态内部类ThreadLocalMap，实际上我们ThreadLocal的get，set方法都是ThreadLocalMap中的方法，ThreadLocalMap底层就是一个entry数组，key存储的就是一个WeakReference修饰的ThreadLocal的引用。
 value存储的就是set进来的值。那么当我们GC时。就会把弱引用修饰的key回收掉。但是对应的value还是存在，value不能被回收。（因为这个时候ThreadLocalMap会存在key为null但是value不为null的entry项）
-如果当前线程一直存在且没有调用该ThreadLocal的remove方法，如果这个时候别的地方还有对ThreadLocal的引用，那么当前线程中的ThreadLocalMap中会存在对ThreadLocal变量的引用和value对象的引用，是不会释放的，就会造成内存泄漏。
+因为entry对象引用了value，而entry又被ThreadLocalMap引用，而ThreadLocalMap又被ThreadLocal引用，所以没有了key的value依然无法被回收。
+ThreadLocalMap是ThreadLocal静态内部类，Entry是ThreadLocalMap的静态内部类，也就是这个关系：this.table = new ThreadLocal.ThreadLocalMap.Entry[16];
 
 
 ⚫什么是内存泄漏，内存溢出？
