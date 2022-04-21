@@ -210,6 +210,10 @@ value存储的就是set进来的值。那么当我们GC时。就会把弱引用�
 ThreadLocalMap是ThreadLocal静态内部类，Entry是ThreadLocalMap的静态内部类，也就是这个关系：this.table = new ThreadLocal.ThreadLocalMap.Entry[16];
 总结：
 ThreadLocal中的entry对象不再使用后，如果没有及时清除Entry对象，而程序自身也无法通过垃圾回收机制自动清除，就可能导致内存泄漏，所以ThreadLocal使用后要及时remove掉
+ThreadLocal内部优化：
+1.set方法，会采样清理，全量清理，扩容时还会继续清理
+2.get方法，没有直接命中，向后环形查找时会进行清理
+3.remove方法，除了清理当前的entry，海会向后继续清理
 
 
 ⚫什么是内存泄漏，内存溢出？
