@@ -43,7 +43,8 @@
 					MethodBeforeAdvice#before		 AfterReturningAdvice#after
 			
 
-
+MethodInvocation类中的proceed()方法付责递归执行拦截器链，
+MethodInterceptor在invoke方法付责执行织入的代码片段
 
 相关文章：
 https://zhuanlan.zhihu.com/p/383829479
