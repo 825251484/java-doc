@@ -1,3 +1,19 @@
+⚫spring AOP底层原理
+1. AspectJAwareAdvisorAutoProxyCreator 继承 AbstractAutoProxyCreator
+2. AbstractAutoProxyCreator实现了BeanPostProcessor
+3. AbstractAutoProxyCreator类中postProcessAfterInitialization方法，在执行这个方法之前，bean已经完成初始化，完成了依赖注入后，才会执行
+4. postProcessAfterInitialization() 
+	-> wrapIfNecessary() 
+		-> 1.getAvicesAndAdvisorsForBean() ->  // 查找对代理类相关的advisor对象集合,获取该bean需要增强的advices和advisor
+		   2.createProxy() // 创建ProxyFactory代理工厂，并设置一些参数，把上面获取的增强类集合放入工厂中，并且会判断proxy-target-class属性，默认是false，如果是true就会使用CGLIB代理，来创建代理对象
+				-> ProxyFactory#getProxy(getProxyClassLoader()); // 通过代理工厂创建代理类  【getProexy{Return createAopProxy().getProxy(classLoader)}】
+					-> ProxyCreatorSupport#createAopProxy() // 该方法中会获取AopProxyFactory类，通过该类的子类DefaultAopProxyFactory#createAopProxy()去创建代理类
+						-> 执行 new JdkDynamicAopProxy() 或者 new ObjenesisCglibAopProxy(config) // 这两个类继承了AopProxy 创建代理类以后通过 AopProxy#getProxy()来获取代理对象
+						// 方法中默认调用new JdkDynamicAopProxy() ，如果目标类是接口 || 或者是Proxy的子类使用JDK代理（JDK代理需要继承Proxy）。以上判断均不符合且proxy-target-class=true，则使用CGLIB代理
+						// JdkDynamicAopProxy通过执行Proxy.newProxyInstance创建代理类，JdkDynamicAopProxy实现了InvocationHandler
+
+
+
 ⚫AOP底层原理 || @Transaction底层原理 || 拦截器原理？
 1.首先会在创建bean的时候生成代理类。通过ProxyFactory代理工厂创建代理对象，并且会把增强类集合（拦截器链）放入代理工厂，默认使用JDK代理，如果配置了参数使用proxyTargetClass=true，但是目标类是接口或者继承Proxy，然后使用jdk代理，否则才使用cglib代理
 2.在执行方法的时候，根据代理不同，会触发拦截器，拦截该方法，
