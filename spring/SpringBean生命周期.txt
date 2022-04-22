@@ -1,7 +1,7 @@
 getBean()
 
 1.在bean实例化之前，先执行
-	resolveBeforeInstantiation{
+	resolveBeforeInstantiation{ // 这里是针对用户自己实现AbstractBeanFactoryBasedTargetSource类中的切面方法，而提前生成的代理对象
 		applyBeanPostProcessorsBeforeInstantiation
 		bean = applyBeanPostProcessorsBeforeInstantiation(targetType, beanName);  // 尝试去获取代理对象，看是否是@Aspect修饰的AOP类，
 		if (bean != null) {
