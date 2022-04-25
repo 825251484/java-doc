@@ -51,6 +51,45 @@ https://zhuanlan.zhihu.com/p/383829479
 https://www.cnblogs.com/chihirotan/p/7146586.html
 
 
+⚫@Transaction原理
+在proceed()方法中会调用TransactionAspectSupport#invokeWithinTransaction()，该方法主要流程：
+createTransactionIfNecessary方法创建了TransactionInfo对象，设置传播行为、隔离级别、手动提交(autoCommit=false)，绑定事务信息到当前线程中。我们本次要分析的重点对象newTransaction标识位就在这个方法中设置值的。
+proceedWithInvocation方法，主要执行目标对象方法。
+completeTransactionAfterThrowing，见名知意，在目标对象方法出现异常后，判断是否进行回滚处理。
+cleanupTransactionInfo方法主要清除当前线程绑定的事务信息。
+commitTransactionAfterReturning，这个方法主要用来提交事务。
+
+
+
+⚫TransactionSynchronizationManager.registerSynchronization(after()->{ 事务提交后执行 })
+A掉B，
+1：如果默认传播机制require，那么C报错不会回滚，且不会影响A
+底层是先把A事务提交，持久化了，然后回调会调用一个回调方法afterCommit，所以不会影响A事务
+2：如果是require_new传播机制，C报错会回滚，且不会影响A。，因为C的事务继承了A的事务，但是A的事务提交了，所以造成C的事务失效。所以不会回滚
+在底层会根据事务传播机制进行判断，如果是require_new则会在回调方法中调用C的时候，创建一个新得事务，
+链接：https://juejin.cn/post/6844903977797025806
+
+
+⚫@Transaction传播机制
+PROPAGATION_require：如果当前没有事务，就新建一个事务，如果已经存在一个事务中，加入到这个事务中。这是最常见的选择。
+PROPAGATION_supports：支持当前事务，如果当前没有事务，就以非事务方式执行。
+PROPAGATION_mandatory：使用当前的事务，如果当前没有事务，就抛出异常。
+PROPAGATION_require_new：新建事务，如果当前存在事务，把当前事务挂起。
+PROPAGATION_not_supported：以非事务方式执行操作，如果当前存在事务，就把当前事务挂起。
+PROPAGATION_never：以非事务方式执行，如果当前存在事务，则抛出异常。
+PROPAGATION_nested：如果当前存在事务，则在嵌套事务内执行。如果当前没有事务，则执行与PROPAGATION_REQUIRED类似的操作。
+
+
+⚫@Transaction失效场景
+1、@Transactional 应用在非 public 修饰的方法上
+2、同一个类中方法调用，无论是public还是private，都会导致@Transactional失效，AB同一个类，A无事务，B有事务，A调B，B事务也会失效，因为没有走代理，
+3、rollbackFor参数设置错误，只回滚：Error的子类（OOM，StackOverFlowError）或者RuntimeException子类才能回滚
+4、catch住异常没有抛出
+5、调用非public修饰的方法
+
+如果@Transaction隔离级别和数据库不一致，会报错：IllegalTransactionStateException
+
+
 ⚫为什么@Transaction只对public修饰的方法生效？
 	如果使用jdk代理：jdk本身只能代理实现接口的类，那么实现接口本身就是public abstract修饰的方法。
 	如果是cglib代理：在执行代理时，会触发TransactionInterceptor事务拦截器执行invoke方法，该方法中调用invokeWithinTransaction() 
