@@ -37,6 +37,10 @@ LinkedList：双向链表。
 	
 Vector：线程安全的动态数组。底层使用sync，可以设置扩容因子
 CopyOnWriteArraryList:
+ArraryList是线程不安全的集合类，在并发编程时可能报错：ConcurrentModificationException，而CopyOnWriteArrayList是juc中线程安全的集合类，底层利用读写分离的思想，
+在写时把原来的数组复制一份，然后长度+1，把新添加的元素放在数组最后，同时添加过程中采用ReentrantLock保证多线程添加时，只有一个线程添加成功，添加成功后会放入原来的数据
+，并且该数组由volatile修饰，保证可见性，修改了该数组，其他线程可以获取到最新的数组，在数组添加过程其他线程可以并发读取原来的数组，不需要加锁，所以CopyOnWrite容器也是一种读写分离的思想。
+
 
 
 ⚫hashmap和hashtable和concurrentHashmap区别？
