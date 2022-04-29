@@ -1,23 +1,3 @@
-⚫https保证安全性的过程
-
-
-⚫进程间如何通信
-
-
-⚫线程是如何创建和销毁
-
-
-⚫怎么通过方法表判断继承关系
-从class文件中提取出来并存储在方法区
-方法区中存储着类的信息：类名，直接父类的完整有效名包+类名（如果是接口或者object没有父类），类的修饰符
-域的信息：成员变量的修饰符（static，final，volatile，public等），名称，类型
-方法信息：方法名，参数类型个数顺序，方法修饰符，方法返回类型，
-运行时常量池
-Class class3=Class.forName("impressive.bean.Article");
-Class class1=Article.class;
-Article article1=(Article)class1.newInstance();
-
-
 ⚫ArraryList和Linklist的区别
 ArrayList ：动态数组。底层时Object[]数组
 jdk8初始容量是0，当第一次添加数据时，会初始化一个长度为10的数组，当添加元素的个数大于数组长度，Arrary将以1.5倍扩容数组，并且无加载因子，就是简单的copyof一个1.5倍的数组，最大容量为Integer.MAX-1-8 ：-8是为了存储一些数组自己的元素。
@@ -146,6 +126,19 @@ synchronizedMap：
 	•Collections 类中存在一个静态方法：synchronizedMap()，该方法创建了一个线程安全的 Map 对象，并把它作为一个封装的对象来返回，synchronizedMap()其实就是对Map的方法加层同步锁，
 LinkHashMap：有序：存入顺序=取出顺序
 TreeMap：红黑树+数组，排序Comparator实现，不仅有序，还自带排序功能，默认升序。红黑树，
+
+
+⚫HashMap为什么是线程不安全？
+1、 1.7中扩容采用的是头插法，会导致在多线程环境下，扩容时会造成环形链或数据丢失。
+2、 1.8在多线程put时，如果计算出来的哈希值相同会产生数据覆盖的问题
+
+
+⚫ConcurrentModificationException产生的原因？
+	hashMap类中全局变量modCount，HashIterator抽象类中全局变量expectedModCount，
+	最开始他们是同步的，但是我们在某些操作的过程中会导致 他们不一致，例如put，remove。会修改hashmap中的modCount。但是HashIterator中expectedModCount却没有发生变化。
+	当增强for循环再次执行的时候，调用的却是HashIterator中的方法nextNode方法，这个方法中获取的就是HashIterator中expectedModCount，
+	最终发现了数据不一致。这就是本例ConcurrentModificationException 产生的根本原因。
+链接：https://juejin.cn/post/6844903569095671816
 
 
 ⚫hashSet和treeSet区别
