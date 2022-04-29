@@ -1,0 +1,51 @@
+⚫HashMap空值怎么处理？
+空值hashcode返回0，
+
+
+⚫HashMap为什么是线程不安全？
+1、 1.7中扩容采用的是头插法，会导致在多线程环境下，扩容时会造成环形链或数据丢失。
+2、 1.8在多线程put时，如果计算出来的哈希值相同会产生数据覆盖的问题
+
+
+⚫ConcurrentModificationException产生的原因？
+	hashMap类中全局变量modCount，HashIterator抽象类中全局变量expectedModCount，
+	最开始他们是同步的，但是我们在某些操作的过程中会导致 他们不一致，例如put，remove。会修改hashmap中的modCount。但是HashIterator中expectedModCount却没有发生变化。
+	当增强for循环再次执行的时候，调用的却是HashIterator中的方法nextNode方法，这个方法中获取的就是HashIterator中expectedModCount，
+	最终发现了数据不一致。这就是本例ConcurrentModificationException 产生的根本原因。
+链接：https://juejin.cn/post/6844903569095671816
+
+
+⚫反射调用私有方法有什么问题？
+在我们的开发过程中，通常只有实体类（Entity）中的成员变量使用 private 修饰，并且会提供访问这些变量的 get 和 set 方法。
+原则上要求不准定义私有的方法，我们使用 method.invoke(Object obj,Object args[]); 强制调用对象调用私有方法违反了我们 Java 中面向对象的特性。
+
+
+⚫Java 中iterator和iterable的关系是怎样的？有何意义？
+public interface Iterable<T> {
+  Iterator<T> iterator();
+}
+public interface Iterator<E> {
+  boolean hasNext();
+  E next();
+  void remove();
+}
+原因是实现了Iterable的类可以在实现多个Iterator内部类，例如LinkedList中的ListItr和DescendingIterator两个内部类，就分别实现了双向遍历和逆序遍历。
+通过返回不同的Iterator实现不同的遍历方式，这样更加灵活。如果把两个接口合并，就没法返回不同的Iterator实现类了。
+
+
+⚫String相关知识
+1、String实现哪些类：public final class String implements java.io.Serializable, Comparable<String>, CharSequence
+2、String类中的方法  
+	copyValueOf：传入char[]，返回一个字符串，内部调用new String
+	valueOf：调用Long.toString(l); 或者Integer.toString(i);  等等
+  
+  
+⚫Arrays.copy()和System.arraycopy()区别
+Arrays.copy()：Arrays.copyOf()方法返回的数组是新的数组对象，底层new了一个新的数组，原数组对象仍是原数组对象，不变，该拷贝不会影响原来的数组，如果新数组的长度超过原数组的长度，则保留数组默认值.
+System.arraycopy() ：System.arraycopy(original, 0, copy, 0,Math.min(original.length, newLength));
+		 参数说明：
+			original：源对象
+			0：源数组中的起始位置
+			copy：目标数组对象
+			0：目标数据中的起始位置
+			length：要拷贝的数组元素的数量，原数组和新数组取最小
