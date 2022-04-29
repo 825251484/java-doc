@@ -147,6 +147,9 @@ ConfigurableBeanFactory：是一个重要的接口，增强了IoC容器的可定
 AutowireCapableBeanFactory：定义了将容器中的 Bean 按某种规则（如按名字匹配、按类型匹配等）进行自动装配的方法；
 SingletonBeanRegistry：定义了允许在运行期间向容器注册单实例 Bean 的方法；
 
+⚫spring有哪些容器
+BeanFactory ApplicationContext DefaultListableBeanFactory
+
 
 ⚫spring MVC启动之IOC
 文章：https://zhuanlan.zhihu.com/p/136338306
