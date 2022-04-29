@@ -1,3 +1,10 @@
+⚫软件设计名词
+OOD - Object-Oriented Design(面向对象设计)
+OOM - Object-Oriented Method(面向对象方法)
+OOA - Object-Oriented Analysis(面向对象分析)
+OOP - Object-Oriented Programming（面向对象编程）
+
+
 ⚫HashMap空值怎么处理？
 空值hashcode返回0，
 
@@ -51,14 +58,6 @@ System.arraycopy() ：System.arraycopy(original, 0, copy, 0,Math.min(original.le
 			length：要拷贝的数组元素的数量，原数组和新数组取最小
 
 
-⚫自动装箱拆箱
-
-⚫多线程的原理
-
-⚫进程间如何通信
-
-⚫线程是如何创建和销毁
-
 ⚫怎么通过方法表判断继承关系
 从class文件中提取出来并存储在方法区
 方法区中存储着类的信息：类名，直接父类的完整有效名包+类名（如果是接口或者object没有父类），类的修饰符
@@ -68,3 +67,38 @@ System.arraycopy() ：System.arraycopy(original, 0, copy, 0,Math.min(original.le
 Class class3=Class.forName("impressive.bean.Article");
 Class class1=Article.class;
 Article article1=(Article)class1.newInstance();
+
+
+⚫什么是单例？
+1.私有构造
+2.使用私有静态成员变量初始化本身对象
+3.对外提供静态公共方法获取本身对象
+单例对象实现有两种：懒汉式（延迟加载, 用的时候在new），饿汉式
+
+
+⚫单例破坏有哪些？
+单例破坏：（破坏都是获取calss对象来处理，而单例是获取对象的）
+1.1反射破坏：反射可以访问私有的构造方法，通过反射获取默认的私有构造器，并改变其构造器的访问域，从而实现调用构造器来创建对象
+1.2防止反射破坏解决方案：在构造器中添加标志位，用来判断构造器是否被调用过，阻止外部调用构造器
+2.1序列化破坏：序列化时底层是通过反射获取object对象的构造器来创建对象的（不是通过序列化对象的构造器创建对象），然后把object的引用指向被序列化的对象，导致反序列化之后对象不是之前的对象了
+2.2防止序列化被破坏解决方案：在单例类中实现一个readResolve()方法，并在这个方法中返回我们要的单例对象。（反序列化时底层会检测单例类中是否有该方法。如果有返回该方法中的对象）
+
+
+⚫防止单例破坏？
+防止单例破坏
+枚举类，防止反射和序列化的破坏
+public enum SingletonDemo {
+    INSTANCE;
+    public static SingletonDemo getInstance() {
+        return INSTANCE;
+    }
+}
+
+
+⚫自动装箱拆箱
+
+⚫多线程的原理
+
+⚫进程间如何通信
+
+⚫线程是如何创建和销毁
