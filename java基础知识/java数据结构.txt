@@ -240,13 +240,3 @@ public class Outer {
 }
 为什么匿名内部类使用局部变量和方法参数就需要被final修饰：为不让内部类改变内容，使其参数值产生差异。索然加上final不让你们改。
 
-⚫session和cookie的区别  
-
-⚫多节点，如何实现session共享
-
-⚫spring有哪些容器
-beanFactory applicationContext ListableBeanFactory
-
-⚫自动装箱拆箱
-
-⚫多线程的原理
