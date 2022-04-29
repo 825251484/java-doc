@@ -49,3 +49,22 @@ System.arraycopy() ：System.arraycopy(original, 0, copy, 0,Math.min(original.le
 			copy：目标数组对象
 			0：目标数据中的起始位置
 			length：要拷贝的数组元素的数量，原数组和新数组取最小
+
+
+⚫自动装箱拆箱
+
+⚫多线程的原理
+
+⚫进程间如何通信
+
+⚫线程是如何创建和销毁
+
+⚫怎么通过方法表判断继承关系
+从class文件中提取出来并存储在方法区
+方法区中存储着类的信息：类名，直接父类的完整有效名包+类名（如果是接口或者object没有父类），类的修饰符
+域的信息：成员变量的修饰符（static，final，volatile，public等），名称，类型
+方法信息：方法名，参数类型个数顺序，方法修饰符，方法返回类型，
+运行时常量池
+Class class3=Class.forName("impressive.bean.Article");
+Class class1=Article.class;
+Article article1=(Article)class1.newInstance();
