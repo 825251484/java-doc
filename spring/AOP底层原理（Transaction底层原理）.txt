@@ -62,10 +62,10 @@ commitTransactionAfterReturning，这个方法主要用来提交事务。
 
 
 ⚫TransactionSynchronizationManager.registerSynchronization(after()->{ 事务提交后执行 })
-A掉B，
-1：如果默认传播机制require，那么C报错不会回滚，且不会影响A
+A掉C，
+1：如果默认传播机制require，那么C报错不会回滚，且不会影响A，因为C的事务继承了A的事务，但是A的事务提交了，所以造成C的事务失效。所以不会回滚
 底层是先把A事务提交，持久化了，然后回调会调用一个回调方法afterCommit，所以不会影响A事务
-2：如果是require_new传播机制，C报错会回滚，且不会影响A。，因为C的事务继承了A的事务，但是A的事务提交了，所以造成C的事务失效。所以不会回滚
+2：如果是require_new传播机制，C报错会回滚，且不会影响A。
 在底层会根据事务传播机制进行判断，如果是require_new则会在回调方法中调用C的时候，创建一个新得事务，
 链接：https://juejin.cn/post/6844903977797025806
 
