@@ -9,7 +9,8 @@
 节省资源，启动迅速
 
 容器：容器是独立的。互相之间隔离的。每个容器有自己独立的ip，好像一个独立的机器一样。
-原理：namespace做的隔离：mnt：文件系统隔离，独立的文件系统，net：网路隔离，pid user uts ipc：进程号隔离。用户隔离，自己有自己的用户名，主机名。
+原理：
+namespace做的隔离：mnt：文件系统隔离，独立的文件系统，net：网路隔离，pid user uts ipc：进程号隔离。用户隔离，自己有自己的用户名，主机名。
 Cgroups限制：cpu，内存限制在自己的容器中，可以对每个容器设置几何cpu以及使用多大内存等等，也就是对资源进行限制
 
 
@@ -38,7 +39,7 @@ docket port查看容器端口，容器内部端口：和对外暴露的端口
 docket stop：停止容器，停止后docket ps -a才可以查看到容器
 docket start：运行容器
 docket rm：删除容器
-docket 
+docket cp：容器内外拷贝
 docket 
 
 docket 声明周期：create， start，stop，rm删除
