@@ -35,12 +35,12 @@ docket exec -it redis sh ：exec就是进去容器内，可以对容器内应用
 exit退出容器
 docket logs redis：查看容器运行日志
 docket ps -a：可以查看退出状态（运行失败的）和运行状态的所有容器
-docket port查看容器端口，容器内部端口：和对外暴露的端口
+docket port：查看容器端口，容器内部端口：和对外暴露的端口
+docker inspect：容器名称  #查看容器信息
 docket stop：停止容器，停止后docket ps -a才可以查看到容器
 docket start：运行容器
 docket rm：删除容器
 docket cp：容器内外拷贝
-docket 
 
-docket 声明周期：create， start，stop，rm删除
+docket 生命周期：create， start，stop，rm删除
 
