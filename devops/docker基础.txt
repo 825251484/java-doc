@@ -18,7 +18,7 @@ docker命令：
 docker images：列出镜像（Repository ：镜像所在仓库名称，Tag ：镜像版本，Image ID ：镜像 ID，Created ：镜像创建时间，Size ：镜像大小）
 docker search：搜索镜像
 docker build -t nginx:1.0 -f docketfile：创建一个镜像， -t设置一个镜像标签名称，f：指定一个文件创建镜像。文件中拉去ngnix镜像
-docker run -d ngnix:1.0 -p ：运行容器。-d：后台运行，-p指定一个端口，运行以后会打印出容器id
+docker run -d ngnix:1.0 -p ：利用镜像文件运行容器。-d：后台运行，-p指定一个端口，运行以后会打印出容器id
 docket ps：查看运行的容器
 
 
