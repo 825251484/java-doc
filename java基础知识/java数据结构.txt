@@ -124,7 +124,7 @@ jdk1.8 node数组+链表+红黑树：当链表长度大于8。数组长度大于
 
 synchronizedMap：
 	•Collections 类中存在一个静态方法：synchronizedMap()，该方法创建了一个线程安全的 Map 对象，并把它作为一个封装的对象来返回，synchronizedMap()其实就是对Map的方法加层同步锁，
-LinkHashMap：有序：存入顺序=取出顺序
+LinkHashMap：有序：存入顺序=取出顺序，内部before和after字段实现的排序功能
 TreeMap：红黑树+数组，排序Comparator实现，不仅有序，还自带排序功能，默认升序。红黑树，
 
 
