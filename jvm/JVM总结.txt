@@ -298,7 +298,7 @@ ZGC：
 Shenandoah GC的STW时间不会随堆的增大而线性增长，所以回收200GB的堆和2GB的堆的STW时间相差无几。Shenandoah GC的大部分阶段都是并发的，
 Shenandoah GC类似于G1，也是基于Region的堆设计，但是它没有采用弱分代假设。一个特别的地方是它在移动对象时允许Mutator线程运行，即并发整理阶段（Concurrent Compact），
 这是它减少停顿时间的关键，也是低延时的秘诀所在。因为没有分代设计，在并发整理阶段，Shenandoah GC会清理所有可能Region。并发整理的关键技术是Brooks指针
-
+https://www.cnblogs.com/ronnieyuan/p/12349959.html
 
 ⚫Java虚拟机在“用户线程”都结束后会后退出。
 守护线程在没有用户线程可服务时自动离开
