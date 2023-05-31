@@ -100,10 +100,12 @@ FutureTask
 
 
 ⚫并发编程常用的辅助类
-CountDownLatch：CountDownLatch 内部维护了⼀个计数器，只有当计数器==0时，某些线程才会停⽌阻塞，开始执⾏，
-CountDownLatch 主要有两个⽅法， countDown() 来让计数器-1， await() 来让线程阻塞。当count==0 时，阻塞线程⾃动唤醒。
-
+CountDownLatch：CountDownLatch 内部维护了⼀个计数器，只有当计数器==0时，某些线程才会停⽌阻塞，开始执⾏，CountDownLatch 主要有两个⽅法， countDown() 来让计数器-1， await() 来让线程阻塞。当count==0 时，阻塞线程⾃动唤醒。
 CyclicBarrier：CountDownLatch 是减，⽽CyclicBarrier 是加，理解了CountDownLatch ， CyclicBarrier 就很容易
+区别：
+1.CyclicBarrier和CountDownLatch的区别CountDownLatch的计数器只能使用一次，而CyclicBarrier的计数器可以使用reset()方法重置，可以使用多次，所以CyclicBarrier能够处理更为复杂的场景；
+2.CyclicBarrier还提供了一些其他有用的方法，比如getNumberWaiting()方法可以获得CyclicBarrier阻塞的线程数量，isBroken()方法用来了解阻塞的线程是否被中断；
+3.CountDownLatch允许一个或多个线程等待一组事件的产生，而CyclicBarrier用于等待其他线程运行到栅栏位置。
 
 Semaphore：CountDownLatch 的问题是不能复⽤。⽐如count=3 ，那么减到0，就不能继续操作了。
 Semaphore 可以解决这个问题，⽐如6辆⻋3个停⻋位，对于CountDownLatch 只能停3辆⻋，⽽Semaphore 可以停6辆⻋，⻋位空出来后，其它⻋可以占有，这就涉及到了
@@ -118,7 +120,7 @@ ReentrantLock类种有三个静态内部类Sync、NonfairSync、FairSync，Sync�
 	1. 通过cas的方式去获取共享资源state(AQS中volatile修饰的全局变量),尝试去把state设置成1，如果成功了，说明获取锁成功。并记录下来当前独占的线程是哪个线程。(AQS中私有的线程对象exclusiveOwnerThread)
 	2. 如果设置失败了，执行acquire(1)方法，该方法中有一个判断，判断中有三个方法
 		2.1 方法1：tryAcquire(arg) 获取当前线程，和state状态，尝试再去获取锁，state != 0,那么判断当前线程是否等于已经占有锁的线程，如果是，那么就是可重入锁，把state的值再+1，如果当前方法返回失败，那么获取锁失败
-		2.2 方法2：addWaiter(Node.EXCLUSIVE)：把当前线程以独占模式封装到Node节点中，并把该节点通过case方式，加入同步队列的队尾，
+		2.2 方法2：addWaiter(Node.EXCLUSIVE)：把当前线程以独占模式封装到Node节点中，并把该节点通过cas方式，加入同步队列的队尾，
 			如果当前队列为空，那么执行方法enq()：以cas方式创建一个头节点，并以cas方式把当前节点放在头节点的后面，该方法会返回当前线程的node节点
 		2.3 方法3：acquireQueued(addWaiter(Node.EXCLUSIVE), arg)) ，通过一个无线循环再次尝试获取锁，首先判断前节点是不是头节点，如果是，并且tryAcquire(arg) 尝试获取到了锁，那么把头节点出队，并置空（等待被GC），然后把当前节点作为新的头节点。
 			2.3.1 如果前节点不是头节点。或者没有获取到锁，
@@ -226,7 +228,7 @@ notifyAll()：唤醒在此同步锁对象上等待的所有线程，只有当前
 参考链接：https://www.cnblogs.com/xiaoxi/p/7581899.html
 
 
-⚫为什么wait和notify要卸载sync中？
+⚫为什么wait和notify要在sync中？
 wait是线程阻塞，notify是唤醒线程，两者必须成对出现。如果一个线程被wait阻塞了，那么就需要另一个线程notify唤醒，从而实现多个线程之间的通信。
 如果实现线程之间的通信。那么在多线程执行时，必然存在一个并行执行的情况，为了控制程序在什么时候等待和唤醒，就需要一个条件来控制线程的执行的顺序，也就说通过sync来控制
 谁获得了锁，那么谁就获得对共享变量的修改权。修改之后，在通知其他线程来修改。从而达到线程之间的通信
