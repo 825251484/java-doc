@@ -26,9 +26,10 @@
 	2.poll：Select函数监听的文件描述符是1024个，但是poll没有限制，原理是一致的
 	3.epoll：解决还有返回具体的就绪的fd，还有循环fd的场景
 		提供三个函数来实现多路复用
-		epoll_create：创建一个epoll实例句柄？
-		epoll_ctl：向内核添加，修改，删除要监控的描述符，
-		epoll_wait：	
+		epoll_create：创建一个eventpoll对象，该对象中包含三个参数：wq等待队列、rdllist就绪队列、rbr红黑树。调用该参数时就创建一个空参数得对象。
+		epoll_ctl：向内核添加，修改，删除要监控的描述符，当用户发起IO请求时，就会对上面的eventpoll对象进行操作，把新的io请求，插入到eventpoll对象的rbr红黑树中。
+		epoll_wait：一旦某个fd准备就绪就会被插入到就绪队列中，同时唤醒等待队列中进程，该进程就去查询就绪列表中是否有数据，如果有数据（此时可能有对个fd准备就绪），
+		该进程调用epoll_wait将就绪队列中fd从内核空间拷贝到用户空间。调用copy_from_user和copy_to_user进行拷贝
 		一旦某个fd就绪，内核会采用回调机制，在调用epoll_wait方法时，将该就绪的fd通知给epoll_wait方法，省去了select中遍历fd的操作，而是采用监听事件回调机制，这就是epoll的亮点
 		fd在其中的结构是 红黑树+双链表
 		
