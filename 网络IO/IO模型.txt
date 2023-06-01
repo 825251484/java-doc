@@ -22,22 +22,20 @@
 	所以每次调用select函数bitmap都不可以重用，当有fd准备就绪，select会将所有fd拷贝到用户空间，用户遍历所有fd找到就绪的fd。进行io操作：
 	缺点：
 		1.单进程监听的fd存在限制，默认1024
-		2.每次需要将全部的fd拷贝
+		2.fd_set也就是bitmap不能重用，每次都需要重置
 		3.不知道哪个fd准备就绪，需要遍历所有fd
-		4.fd_set也就是bitmap不能重用，每次都需要重置
+		4.每次需要将全部的fd拷贝
 	
 	用户发起io请求，调用read方法，通过调用系统函数select:将文件fd传给select函数，在内核空间遍历fd，监控fd，
 		该函数会监控多个fd的状态，只要有一个fd准备就绪，就将所有的fd其中包含就绪的fd全部返回给用户空间（用户应用），
 		然后read方法拿到数组（read方法是非阻塞的没数据就不处理，但是内核中select函数是阻塞操作），循环遍历fd查找就绪的fd，如果没有数据处理，那么read方法不会阻塞，但是调用底层select函数时，select函数是阻塞的。
 		优点：不需要用户自己遍历，并且read操作线程从用户态切换内核态的耗时操作，
-		缺点：
-			1.select会循环每个fd判断其是否就绪，并且是阻塞操作，
-			2.还有select会把没有就绪的fd全部返回给用户，用户再遍历找出就绪的fd，也会有性能的损耗
+		
 	2.poll：
 	int poll(pollfd,nfds,timeout)：fd事件集合，fd数量，超时时间，pollfd结构：fd，events，revent就绪标志。
 	首先调用accept函数，将所有fd放入pollfds数组中，然后调用poll函数，将所有pollfds数组拷贝到内核空间，如果某个fd准备就绪，就将revent打上标志。然后将所有pollfds拷贝到用户空间，
-	然后遍历数组找到就绪的fd，因为poll改用了事件数组对象来存储fd，所有不存在select中bitmap最大限制1024的问题。同时pollfds可以重用
-	Select函数监听的文件描述符是1024个，但是poll没有限制，原理是一致的
+	然后遍历数组找到就绪的fd，因为poll改用了事件数组对象来存储fd，所有不存在select中bitmap最大限制1024的问题。同时pollfds可以重用，
+	解决了上面缺点的前两项
 	3.epoll：解决还有返回具体的就绪的fd，还有循环fd的场景
 		提供三个函数来实现多路复用
 		epoll_create：创建一个eventpoll对象，该对象中包含三个参数：wq等待队列、rdllist就绪队列、rbr红黑树。调用该参数时就创建一个空参数得对象。
