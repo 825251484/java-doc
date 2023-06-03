@@ -162,7 +162,7 @@ count 	扫表		专门存储的地方
 		3、Async/Sync Flush Checkpoint
 			redo log快写满的时候执行checkpoint。
 			当redo log 文件占用空间超过75%小于90%，会执行异步落盘操作。不会阻塞写操作。
-			当redo log 文件占用空间超过90%，会执行同步异步落盘操作。会阻塞写操作。
+			当redo log 文件占用空间超过90%，会执行同步落盘操作。会阻塞写操作。
 		4、Dirty Page too much Checkpoint
 			buffer pool中脏页太多，如果脏页率超过75%执行checkpoint。
 			
