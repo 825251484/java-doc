@@ -91,9 +91,25 @@ Kafka通过使用内存缓冲池，让整个消息发送的过程中，内存空
 		Deque<ByteBuffer> free 池化的空间
 		nonPooledAvaliableMemory未被池化的可使用空间
 	当生产者发送数据时，会根据消息体的大小向BufferPool申请一块内存16k大小的ByteBuffer，如果超过16k那么就向nonPooledAvaliableMemory申请一块内存空间来存放消息，
-	因为对于磁化的空间中的内存是可以重复使用的，这块内存的使用和释放不需要等待GC来回收的，（就像线程池中的线程一样，一个道理，重复使用），
-	没有GC的操作那么就不会发送STW，这也是kafka高性能的原因之一
+	因为对于磁化的空间中的内存是可以循环重复使用的，这块内存的使用和释放不需要等待GC来回收的，（就像线程池中的线程一样，一个道理，重复使用），
+	没有GC的操作那么就不会发送STW，这也是kafka高性能，高吞吐的原因之一
+	非磁化内存是需要GC来处理的，所以在生产中，我要尽量控制消息的大小，从而控制频繁的GC导致kafka的性能下降，（如果消息太大可以调整batch.size=16384）。
+	
 注意：
 buffer.memory（默认32MB），这个参数代表的是RecordAccumulator所能容纳的最大的recordSize，其实这个参数经过层层传递，最终传给了BufferPool，由BufferPool来实际管理RecordAccumulator的容量。RecordAccumulator只需要关注自身的一些append、ready等等逻辑就好啦，职能很明确。
-batch.size=16384设置ByteBuffer大小
-linger.ms默认0当达到这个时间，消息就会被发送到broker端
+batch.size=16384设置ByteBuffer大小，一旦消息的大小达到这个值，就将消息发送给borker，
+linger.ms默认0发送消息的延时时间，当达到这个时间，消息就会被发送到broker端，
+compression.type消息压缩，减少占用的带宽（如果消费能力本身就不足，一般不建议压缩了，消息能力不足会消息积压，所以减少批量）
+max.in.flight.requests.per.connection=5 指定了生产者在接收到服务器相应之前可以发送多个消息，值越高，占用的内存越大，当然也可以提升吞吐量，发生错误时，可能会造成数据的发送顺序改变，其默认值是5.
+并且建议max.in.flight.requests.per.connection 的值小于 5。如何保证顺序，下面详解
+
+⚫kafka消息顺序及幂等性问题
+Kafka本身支持 At least once消息送达语义，因此实现消息发送的幂等关键是要实现 Broker端消息的去重。为了实现消息发送的幂等性，Kafka引入了两个新的概念：
+【1】PID：每个新的 Producer在初始化的时候会被分配一个唯一的PID，这个 PID对用户是不可见的；
+【2】Sequence Numbler：对于每个PID，该 Producer发送数据的每个<Topic, Partition>都对应一个从0开始单调递增的Sequence Number；
+Broker端在内存中保存了这 Sequence Numbler，对于接收的每条消息，如果其序列号的值（SN_new）比 Broker端中维护的对应的序列号的值（SN_old）大1（即SN_new = SN_old + 1）时，Broker才会接收它，否则将其丢弃。这样就可以实现了消息重复提交了。但是，只能保证单个 Producer对于同一个 <Topic, Partition>的 Exactly Once语义。不能保证同一个Producer一个 Topic不同的 Partion幂等。
+
+
+⚫消息如何发送到kafka集群的broker节点中
+https://www.bilibili.com/video/BV1584y1H7BP/?spm_id_from=333.788&vd_source=80c3ca1a77e037f4d86501ba97d54dbb
+链接：https://blog.csdn.net/muyimo/article/details/118877254
