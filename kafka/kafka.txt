@@ -78,7 +78,14 @@ kafka底层时按照分区存储数据的，每个分区下以文件大小存储
 
 
 ⚫kafka消费分区策略
-Kafka为什么建议使用CooperativeStickyAssignor消费分区策略，在发送Rebalance的时候，CooperativeStickyAssignor 相比 RangeAssignor、RoundRobinAssignor 和 StickyAssignor 这三者分区分配策略，不会发生全局的Stop the World
+Kafka为什么建议使用CooperativeStickyAssignor（kafka2.4.0）消费分区策略，在发送Rebalance的时候，CooperativeStickyAssignor 相比 RangeAssignor、RoundRobinAssignor 和 StickyAssignor 这三者分区分配策略，不会发生全局的Stop the World
+当发生rebalance时仍然能保证一部分的分区的消费
+Group Coordinator渐进式的rebalance
+例如：
+消费者C1消费两个分区P0,P2
+消费者C2消费一个分区P1
+当有第三个消费者C3加入时，Group Coordinator会收到join Group通知，然后Group Coordinator会通知C1 C2进行rebalance，这两个消费者将自己持有的分区发送给Group Coordinator，
+Group Coordinator经过计算，得出应该把P2分给C3，在整个rebalance这期间第一阶段就是所有分区正常消费，第二个阶段P2停止消费，第二阶段结束P2正常消费
 
 ⚫kafka的RecordAccumulator
 	RecordAccumulator内部结构
