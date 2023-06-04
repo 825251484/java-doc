@@ -115,7 +115,7 @@ log.flush.scheduler.interval.ms 日志刷新程序检查是否需要将任何日
 https://www.bilibili.com/video/BV1Ss4y1h7ea/?spm_id_from=333.788&vd_source=80c3ca1a77e037f4d86501ba97d54dbb
 
 ⚫如何尽量防止数据丢失呢？
-将min.insync.replicas=2何止多副本，并设置log.dirs='多目录'：为了使每个目录对应一个独立的硬盘，防止硬盘坏了导致所有数据丢失
+将min.insync.replicas=2设置多副本，并设置log.dirs='多目录'：为了使每个目录对应一个独立的硬盘，防止硬盘坏了导致所有数据丢失
 
 ⚫kafka内存池化技术
 Kafka通过使用内存缓冲池，让整个消息发送的过程中，内存空间可以循环利用，有效的降低了JVM GC的触发次数，从而提高了消息发送的速度，提升了吞吐量。
