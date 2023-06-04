@@ -22,6 +22,9 @@ kafka利用操作系统的内存，而非jvm内存，避免了内存溢出和GC�
 就是使⽤了磁盘顺序读写来提升的性能。Kafka的message是不断追加到本地磁盘⽂件末尾的，⽽不
 是随机的写⼊，这使得Kafka写⼊吞吐量得到了显著提升
 
+⚫kafka零拷贝原理
+
+
 
 ⚫Kafka生产和消费数据之所以快的几个原因。
 一：Sender()子线程用到了批量发送消息。
@@ -108,6 +111,7 @@ Kafka本身支持 At least once消息送达语义，因此实现消息发送的�
 【1】PID：每个新的 Producer在初始化的时候会被分配一个唯一的PID，这个 PID对用户是不可见的；
 【2】Sequence Numbler：对于每个PID，该 Producer发送数据的每个<Topic, Partition>都对应一个从0开始单调递增的Sequence Number；
 Broker端在内存中保存了这 Sequence Numbler，对于接收的每条消息，如果其序列号的值（SN_new）比 Broker端中维护的对应的序列号的值（SN_old）大1（即SN_new = SN_old + 1）时，Broker才会接收它，否则将其丢弃。这样就可以实现了消息重复提交了。但是，只能保证单个 Producer对于同一个 <Topic, Partition>的 Exactly Once语义。不能保证同一个Producer一个 Topic不同的 Partion幂等。
+有序性：max.in.flight.requests.per.connection 小于等于 5，且开启幂等性enable.idempotence=true，broker 会对在途的请求按 SeqNum 排序，能保证分区消息的有序性
 
 
 ⚫消息如何发送到kafka集群的broker节点中
