@@ -153,3 +153,4 @@ https://www.bilibili.com/video/BV1584y1H7BP/?spm_id_from=333.788&vd_source=80c3c
 
 
 ⚫kafka leader选举
+https://www.cnblogs.com/luedong/p/16023061.html
