@@ -23,7 +23,7 @@ kafka利用操作系统的内存，而非jvm内存，避免了内存溢出和GC�
 是随机的写⼊，这使得Kafka写⼊吞吐量得到了显著提升
 
 
-Kafka生产和消费数据之所以快的几个原因。
+⚫Kafka生产和消费数据之所以快的几个原因。
 一：Sender()子线程用到了批量发送消息。
 二：Sender()子线程在写数据的时候，是直接写到了pageCache中，相当于到目前为止，数据都是在内存中操作。
 三：操作系统在将PageCache中的数据写到硬盘的时候，用到了顺序写。
@@ -31,7 +31,7 @@ Kafka生产和消费数据之所以快的几个原因。
 五：消费者在消费数据的时候，会使用“零拷贝”技术，将PageCache中的数据直接拷贝到网卡设备，进而实现快速消费。
 六：使用PageCache，省去了对JVM的GC操作，从而避免发生Stop the World。
 
-kafka之所以快的原因？
+⚫kafka之所以快的原因？
 简单来说，是因为他充分利用了操作系统cache，顺序写和零拷贝技术。可以从 存储、访问， 两个方面分析。
 存储
 1.数据的写入利用了操作系统提供的pageCache，属于堆外内存，降低java应用内存的管理压力，从而减少了gc带来的stop the word问题，基于内存操作，且采取顺序写入方式，效率极快。
@@ -41,10 +41,10 @@ kafka之所以快的原因？
 4.dma+mmap ，利用DMA提供的mmap函数调用，允许内核态缓冲区直接引用文件句柄，与用户态缓冲区内存共享，从而实现像访问内存那样直接访问文件。减少文件copy次数和态转换。
 
 
-kafka消费分区策略
+⚫kafka消费分区策略
 Kafka为什么建议使用CooperativeStickyAssignor消费分区策略，在发送Rebalance的时候，CooperativeStickyAssignor 相比 RangeAssignor、RoundRobinAssignor 和 StickyAssignor 这三者分区分配策略，不会发生全局的Stop the World
 
-kafka的RecordAccumulator
+⚫kafka的RecordAccumulator
 	RecordAccumulator内部结构
 	    private final ConcurrentMap<TopicPartition, Deque<ProducerBatch>> batches;
 	    private final BufferPool free;
@@ -52,10 +52,48 @@ kafka的RecordAccumulator
  kafka会把多条消息都放在ProducerBatch中，打包一起发送，当ProducerBatch写满的时候，就会唤醒sender子线程，然后把数据发送到leader所在的broker中的pagecache上，如果设置了多副本机制
  那么从节点follower就会从leader中拉取消息。当所有节点拉完消息，（acks=10，retries=10），这个时候会向生产者反馈一个ack应答，告诉生产者已经写入成功。但是消息此时在pagecache中，
  没有写入到硬盘上。如果此时机器挂了，那么这些数据就会丢失，
+ 注意：
+ 生产者发送失败ack应答失败，生产者会重新发送。
+ acks应答参数：
+ 0：我的KafkaProducer在客户端，只要把消息发送出去，不管那条数据有没有发送出去，哪怕Partition Leader没有写入磁盘，也不管他了，直接认为这个消息发送成功
+ 1：只要Partition Leader接收到消息且写入本地磁盘，就认为成功，不管他其他的Follower有没有同步过去这条消息
+ all：Partition Leader接收到消息之后，还必须要求ISR列表里跟Leader保持同步的那些Follower都要把消息同步过去，才认为这条消息是写入成功的。失败会重新发送
+ retries：重新发送的次数
+ 设置参数：
+ min.insync.replicas=2： Kafka ISR 列表中最小同步副本数
+ replication.factor=3，用来设置主题的副本数。每个主题可以有多个副本，副本位于集群中不同的broker上，也就是说副本的数量不能超过broker的数量，否则创建主题时会失败。
+ 链接：https://www.bilibili.com/video/BV1Ss4y1h7ea/?spm_id_from=333.788&vd_source=80c3ca1a77e037f4d86501ba97d54dbb
 
 
-kafka会不会丢数据
+⚫kafka会不会丢数据
 即使我们把参数配置的很完善，也会丢失数据的两种场景：
 一 当数据写到足够多的PageCache时，就会向生产者反馈acks响应，告知数据写入成功，但是如果此时，这些PageCache所在的操作系统挂了，如果数据还没写到硬盘上，这时数据就真的丢失了。
 二 当副本数据所在的硬盘坏掉了，也会丢失数据。
+注意：
+我们可以改变以下参数来调整刷盘的频率，但是kafka官方不建议使用者调整。会影响kafka的性能，同时kafka官方认为可以用过副本机制来保证数据的可靠性
+log.flush.interval.messages=10000 在持久化到磁盘前message最大接收条数。
+log.flush.interval.ms=1000 任何主题中的消息在刷新到磁盘之前保留在内存中的最长时间（毫秒）。如果未设置，则使用 log.flush.scheduler.interval.ms 中的值
+log.flush.scheduler.interval.ms 日志刷新程序检查是否需要将任何日志刷新到磁盘的频率（以毫秒为单位）
 
+⚫kafka官网文档：https://kafka.apache.org/documentation.html#configuration
+https://www.bilibili.com/video/BV1Ss4y1h7ea/?spm_id_from=333.788&vd_source=80c3ca1a77e037f4d86501ba97d54dbb
+
+⚫如何尽量防止数据丢失呢？
+将min.insync.replicas=2何止多副本，并设置log.dirs='多目录'：为了使每个目录对应一个独立的硬盘，防止硬盘坏了导致所有数据丢失
+
+⚫kafka内存池化技术
+Kafka通过使用内存缓冲池，让整个消息发送的过程中，内存空间可以循环利用，有效的降低了JVM GC的触发次数，从而提高了消息发送的速度，提升了吞吐量。
+	RecordAccumulator内部结构
+	    private final ConcurrentMap<TopicPartition, Deque<ProducerBatch>> batches;
+	    private final BufferPool free;
+	ProducerBatch内部结构：使用ByteBuffer来存储数据的。
+	BufferPool：
+		Deque<ByteBuffer> free 池化的空间
+		nonPooledAvaliableMemory未被池化的可使用空间
+	当生产者发送数据时，会根据消息体的大小向BufferPool申请一块内存16k大小的ByteBuffer，如果超过16k那么就向nonPooledAvaliableMemory申请一块内存空间来存放消息，
+	因为对于磁化的空间中的内存是可以重复使用的，这块内存的使用和释放不需要等待GC来回收的，（就像线程池中的线程一样，一个道理，重复使用），
+	没有GC的操作那么就不会发送STW，这也是kafka高性能的原因之一
+注意：
+buffer.memory（默认32MB），这个参数代表的是RecordAccumulator所能容纳的最大的recordSize，其实这个参数经过层层传递，最终传给了BufferPool，由BufferPool来实际管理RecordAccumulator的容量。RecordAccumulator只需要关注自身的一些append、ready等等逻辑就好啦，职能很明确。
+batch.size=16384设置ByteBuffer大小
+linger.ms默认0当达到这个时间，消息就会被发送到broker端
