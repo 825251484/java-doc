@@ -39,3 +39,23 @@ kafka之所以快的原因？
 访问
 3.dma+sendfile  对于磁盘数据的读取，利用DMA（直接内存访问）的系统调用sendfile，由传统的 磁盘-内核缓冲-应用缓存-socket缓冲-网卡 文件copy方式，改进为 磁盘-内核缓冲-socket缓冲-网卡，减少了 用户/内核态的转换次数和 文件copy次数。
 4.dma+mmap ，利用DMA提供的mmap函数调用，允许内核态缓冲区直接引用文件句柄，与用户态缓冲区内存共享，从而实现像访问内存那样直接访问文件。减少文件copy次数和态转换。
+
+
+kafka消费分区策略
+Kafka为什么建议使用CooperativeStickyAssignor消费分区策略，在发送Rebalance的时候，CooperativeStickyAssignor 相比 RangeAssignor、RoundRobinAssignor 和 StickyAssignor 这三者分区分配策略，不会发生全局的Stop the World
+
+kafka的RecordAccumulator
+	RecordAccumulator内部结构
+	    private final ConcurrentMap<TopicPartition, Deque<ProducerBatch>> batches;
+	    private final BufferPool free;
+ 当生产者发送消息时，会把消息放在一个暂存区域batches中，batches中key为topic和partition，value就是存储ProducerBatch的队列，这里时批量发消息的关键。也是kafka高性能的原因之一。
+ kafka会把多条消息都放在ProducerBatch中，打包一起发送，当ProducerBatch写满的时候，就会唤醒sender子线程，然后把数据发送到leader所在的broker中的pagecache上，如果设置了多副本机制
+ 那么从节点follower就会从leader中拉取消息。当所有节点拉完消息，（acks=10，retries=10），这个时候会向生产者反馈一个ack应答，告诉生产者已经写入成功。但是消息此时在pagecache中，
+ 没有写入到硬盘上。如果此时机器挂了，那么这些数据就会丢失，
+
+
+kafka会不会丢数据
+即使我们把参数配置的很完善，也会丢失数据的两种场景：
+一 当数据写到足够多的PageCache时，就会向生产者反馈acks响应，告知数据写入成功，但是如果此时，这些PageCache所在的操作系统挂了，如果数据还没写到硬盘上，这时数据就真的丢失了。
+二 当副本数据所在的硬盘坏掉了，也会丢失数据。
+
