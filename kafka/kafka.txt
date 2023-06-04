@@ -23,7 +23,40 @@ kafka利用操作系统的内存，而非jvm内存，避免了内存溢出和GC�
 是随机的写⼊，这使得Kafka写⼊吞吐量得到了显著提升
 
 ⚫kafka零拷贝原理
+原始拷贝流程：
+	消费者发起请求，到kafka borker端，然后用户空间向cpu发起IO请求，发起read()系统调用，读取硬盘上的数据，这时上下文就会从用户态切换到内核态，read操作时阻塞操作，直到有数据返回，
+	同时cpu对dma发起一个调度命令，通过dma控制器对硬盘发起一个io请求，然后在内存中找到需要消费的消息内容（参考下题），将数据拷贝到内核缓存区pagecache中（cpu不参与这次拷贝），拷贝结束后
+	DMA会收到来至硬盘读取完毕的通知。dma收到信号，会告诉cpu，pagecache中数据准备好了。然后cpu将数据从内核缓存区拷贝到用户缓存区，read方法执行完成，，内核态切换用户态，被阻塞的用户进程会被唤醒
+	，然后cpu将发起io操作wirte()命令（wirte方法阻塞直到返回），同时切换到内核态，cpu将数据拷贝到socket缓存区。然后cpu通知dma将数据拷贝到网卡设备，拷贝结束之后，会从内核态切换到用户态，
+ 	write阻塞结束。
+	共经历：2次cpu拷贝，2次dma拷贝，4次内核用户态切换。
+kafka零拷贝：
+	mmap + dma gather拷贝
+		首先把read()调用改成了mmap()调用，同样需要用户态切换到内核态，mmap会建立一个地址映射区域mmap file，dma将找到的索引数据拷贝到内核空间，
+		这时通过mmap技术用户直接访问索引，通过索引，找到log文件中的消息和附近的消息，将消息通过dma拷贝到内核空间，结束之后，线程从内核态切换到用户态，
+		用户就可以读取共享区域的索引文件了，不需要cpu拷贝到用户空间了，然后cpu将内存中共享区域的地址和偏移量拷贝到socket缓存区。
+		然后linus2.4诞生的dma gather技术，根据socket缓存区中的拷贝内容，找到对应的消息，将消息拷贝到网卡设备，传输到消费者进行消费。内核态切换到用户态
+		共经历：dma拷贝，cpu地址拷贝（只拷贝地址速度很快），dma gather拷贝，2次内核用户态切换.
+		用到技术：mmap内存映射，dma gather拷贝，顺序读，pagecache读，多种技术结合
 
+	sendfile + dma gather拷贝
+		和上一个比，改动点：
+		【1】把mmap调用改成sendfile调用，
+		【2】cpu地址拷贝改成了用非cpu的拷贝，那么就省去了cpu的开销，进一步提高性能，这里主要时linus内核的改进，省去了cpu拷贝
+		共经历：dma拷贝，dma gather拷贝，2次内核用户态切换.
+		用到技术：sendfile，dma gather拷贝，顺序读，pagecache读，多种技术结合
+
+	splice + dma gather拷贝
+		【1】把sendfile调用改成splice调用，
+		【2】splice函数在pagecache和socket缓存区中间建立一个环形读写管道，写端绑定在pagecache，读端绑定到socket。数据从管道被读到socket中，然后将数据通过普通dma拷贝到网卡。
+
+链接：https://www.bilibili.com/video/BV1iX4y1S76o/?spm_id_from=333.788&vd_source=80c3ca1a77e037f4d86501ba97d54dbb
+
+⚫kafka消费消息
+kafka底层时按照分区存储数据的，每个分区下以文件大小存储消息，包含index索引和log消息文件，文件名用offset来命名，从0开始，如果文件写满了，生成第二个文件以上一个文件最大的offset+1来命名。
+根据offset通过二分查找（跳表时间复杂度一样），找到对应的索引文件，小于等于自己的索引文件，通过找到索引文件中比小于等于自己的最大的相对偏移量，相对偏移量对应着log文件的物理地址，
+通过这个物理地址去log文件中到对应的消息。找到对应的消息，就要将消息从磁盘拷贝到内核态中的pageCache中。
+注意：地址附近的消息也会拷贝到pageCache中,预判断一些数据，下次读取直接从pageCache中读取，提高性能，吞吐量
 
 
 ⚫Kafka生产和消费数据之所以快的几个原因。
@@ -117,3 +150,6 @@ Broker端在内存中保存了这 Sequence Numbler，对于接收的每条消息
 ⚫消息如何发送到kafka集群的broker节点中
 https://www.bilibili.com/video/BV1584y1H7BP/?spm_id_from=333.788&vd_source=80c3ca1a77e037f4d86501ba97d54dbb
 链接：https://blog.csdn.net/muyimo/article/details/118877254
+
+
+⚫kafka leader选举
