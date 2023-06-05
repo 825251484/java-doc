@@ -1,4 +1,6 @@
 ⚫5种IO模型
+参考：https://www.bilibili.com/video/BV1qJ411w7du/?spm_id_from=333.337.search-card.all.click&vd_source=80c3ca1a77e037f4d86501ba97d54dbb
+https://www.bilibili.com/video/BV1r54y1f7bU/?spm_id_from=333.788.recommend_more_video.-1&vd_source=80c3ca1a77e037f4d86501ba97d54dbb
 1.同步阻塞IO：BIO
 	用户线程发起io操作，通过调用系统函数accept建立连接，然后调用read函数读取数据，这两个函数都会发送阻塞，当建立连接以后，read函数会去读取数据，但是读取数据之前，
 	数据要从网卡拷贝到内核空间（第一阶段拷贝），然后从内核空间拷贝到用户空间（第二阶段拷贝），最后read操作才可以读取到数据，在拷贝到用户空间之前都是阻塞的。阻塞导致线程不能做任何操作，而且其他io操作也会被阻塞，大大的降低性能
