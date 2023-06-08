@@ -92,8 +92,8 @@ ribbon实现的关键点是为ribbon定制的RestTemplate，ribbon利用了RestT
 3.程序启动后，会扫描所有FeignClient 注解的类，并将这些信息注入到IOC 容器中；
 4.当b中接口被调用时，通过jdk代理，以及反射（Spring处理注解的方式），来生成具体的RequestTemplate
 5.RequestTemplate 生成Reqest
-6.Request 交给httpclient处理，这里的httpclient 可以是OkHttp，也可以是HttpUrlConnection 或者HttpClient
-7.最后Client被封装到LoadBalanceClient类，这个类结合Ribbon 实现负载均衡
+6.Request交给client处理 （client.execute(request,options)），这里的client 可以是OkHttp，也可以是HttpUrlConnection（默认） 或者HttpClient，如果pom文件引入apacheHttpClient，并且yml文件配置httpclient，feign底层就用使用httpclient，
+7.这个client对象是LoadBalanceFeignClient类，这个类中创建一个url请求（jdk中的URL方法，存在性能问题），通过HttpUrlConnection方法调用，并将返回结果封装到response中返回，同时这个类结合Ribbon 实现负载均衡
 
 
 创建对象：
