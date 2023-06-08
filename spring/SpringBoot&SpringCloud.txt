@@ -79,21 +79,38 @@ Spring Cloud Ribbon是一个基于HTTP和TCP的客户端负载均衡工具，它
 
 实现原理
 当ribbon和Eureka配和使用时ribbon可以自动获取服务注册列表，并基于负载均衡算法，请求其中的一个服务提供实例
-ribbon实现的关键点是为ribbon定制的RestTemplate，ribbon利用了RestTemplate的拦截器机制，将拦截器注入到RestTemplate中 在拦截器中实现ribbon的负载均衡。
-负载均衡的基本实现就是利用applicationName从服务注册中心获取可用的服务地址列表，然后通过一定算法负载，决定使用哪一个服务地址来进行http调用。
+ribbon实现的关键点是为ribbon定制的RestTemplate，在创建RestTemplate对象时，标记一个@LoadBalanced注解，那么RestTemplate发送请求也就有了负载均衡的功能
+ribbon利用了RestTemplate的拦截器机制，将拦截器注入到RestTemplate中 ，拦截器拦截请求，在拦截器中通过请求的服务名或者域名去注册中心找到多个ip，
+然后将ip数组交给IRule类来处理，根据负载均衡配置，选择一个IP地址和端口号，通过LoadBalancerClient中的execute方法来执行请求，底层就是发送一个http请求（在拦截器中实现ribbon的负载均衡）
 
+负载均衡的基本实现就是利用applicationName从服务注册中心获取可用的服务地址列表，然后通过一定算法负载，决定使用哪一个服务地址来进行http调用。
 由于ribbon是netflix公司的所以，sprincloud已经不推荐使用，并自己开发spring cloud loadbalancer替代ribbon，原理基本一致
+@Autowired
+private RestTemplate restTemplate;
+@Bean
+@LoadBalanced
+public RestTemplate restTemplate() {
+    return new RestTemplate();
+}
+@GetMapping("/orderList")
+public String getOrderList(String username) {
+    return restTemplate.getForObject("http://" + "micro-order" + "/order/list?username=" + username+"&i=1", String.class);
+}
+参考：https://www.jianshu.com/p/8775406565ca
 
 
 ⚫feign：官网：声明式rest客户端，使服务之间的调用就像调用内部接口一样简单，并Feign可以与Eureka和Ribbon组合使用以支持负载均衡。
 服务间调用组件feign，并且集成了Ribbon
 1.通过主类上的@EnableFeignClients 注解开启FeignClient；
 2.根据Feign 的规则实现接口，并加上FeignClient注解，供调用的地方注入调用；
-3.程序启动后，会扫描所有FeignClient 注解的类，并将这些信息注入到IOC 容器中；
-4.当b中接口被调用时，通过jdk代理，以及反射（Spring处理注解的方式），来生成具体的RequestTemplate
-5.RequestTemplate 生成Reqest
+3.程序启动后，会扫描所有FeignClient 注解的类，并将这些信息注入到IOC 容器中。
+4.当b中接口被调用时，会通过jdk代理生成一个FeignInvocationHandle代理类（伪造一个客户端），然后会执行代理中invke方法，根据方法参数生成RequestTemplate
+5.在方法中executeAndDecode方法中根据RequestTemplate生成Reqeust
 6.Request交给client处理 （client.execute(request,options)），这里的client 可以是OkHttp，也可以是HttpUrlConnection（默认） 或者HttpClient，如果pom文件引入apacheHttpClient，并且yml文件配置httpclient，feign底层就用使用httpclient，
-7.这个client对象是LoadBalanceFeignClient类，这个类中创建一个url请求（jdk中的URL方法，存在性能问题），通过HttpUrlConnection方法调用，并将返回结果封装到response中返回，同时这个类结合Ribbon 实现负载均衡
+7.这个client对象是LoadBalanceFeignClient类，这个类的client.execute方法中创建一个url请求（jdk中的URL方法，存在性能问题），该请求还不知道ip和端口号，
+然后将url和request交给RibbonRequest做负载均衡处理，然后得到一个完整的请求路径，将该请求交给HttpUrlConnection，并设置请求请求链接的超时时间，请求头等信息并将返回结果封装到response中返回
+
+参考：https://www.bilibili.com/video/BV1Dt4y1c7Sc/?spm_id_from=333.788&vd_source=80c3ca1a77e037f4d86501ba97d54dbb
 
 
 创建对象：
