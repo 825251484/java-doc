@@ -208,7 +208,8 @@ mem_fragmentation_ratio ： used_memory_rss / used_memory的比值。
 dictht中存储table和size等信息，table是一个类似于hashtable的结构，是数组+链表的方式：dictEntry[4]数组+每个节点下挂一个单向链表，链表中每个节点存储的就是一个dictEntry对象，这个对象是一个Map结构，存储就是我们要的数据。
 	dictEntry对象：
 		next：指向下一个元素的指针
-		key的指针：指向一个sds结构存储的字符串：C语言中字符串是以\0结尾的，不能满足redis的需求和性能
+		key的指针：指向一个sds结构存储的字符串：C语言中字符串是以\0结尾的，不能满足redis的需求和性能，自己实现了sds的抽象类型，通过空间预分配策略，Redis可以减少连续执行字符串增长操作所需的内存重分配次数，
+		内部参数：uint8_t len; // 已经使用的字节数，uint8_t alloc; // 实际可以存储的字节最大长度，char buf[]; // 柔性数组，用来保存实际的字符串
 		value指针：指向一个redisObject结构的对象
 			redisObject对象：
 				type：五种对象类型
