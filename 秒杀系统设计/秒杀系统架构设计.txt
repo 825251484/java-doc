@@ -15,6 +15,19 @@
 6、接入层缓存：openresty+lua实现的缓存
 
 
+⚫Guava Cache
+CacheBuilder：CacheBuilder类采用建造者设计模式，来构建一个缓存对象。Cache<String,String> cache = CacheBuilder.newBuilder().build();
+设置最大存储：我们在构建缓存时可以为缓存设置一个合理大小初始容量，由于Guava的缓存使用了分离锁的机制，扩容的代价非常昂贵。所以合理的初始容量能够减少缓存容器的扩容次数。.maximumSize(1000)
+缓存淘汰策略（LRU算法）：Guava Cache在构建缓存对象时，指定缓存所能够存储最大的记录数量，当cache中记录条数达到最大值，在执行put方法添加对象时，Guava会从当前缓存记录中选择一条删除掉，腾出空间，再将新的对象存储到cache中
+过期时间：expireAfterWrite 指定对象被写入缓存后多久过期，expireAfterAccess 指定对象多久没有被访问后过期  .expireAfterWrite(3,TimeUnit.SECOND).build()
+显示清除：清除单个key：Cache.invalidate(key)，批量清除key：Cache.invalidateAll(keys)，清除所有缓存项：Cache.invalidateAll()
+LoadingCache：使用自定义ClassLoader加载数据，置入内存中。从LoadingCache中获取数据时，若数据存在则直接返回；若数据不存在，则根据ClassLoader的load方法加载数据至内存，然后返回该数据
+
+
+
+参考链接：http://www.360doc.com/content/22/0318/22/59494473_1022155808.shtml
+
+
 ⚫多级缓存实现：
 	openresty-lua + redis + jvm堆内存（堆内存可以使用guacache可以设置过期时间）
 	1.先访问openresty内存字典，如果内存字典命中，那么就返回数据（内存字段：使用的nignx内存，参数通过nignx获得）
