@@ -161,3 +161,10 @@ https://www.bilibili.com/video/BV1584y1H7BP/?spm_id_from=333.788&vd_source=80c3c
 
 ⚫kafka leader选举
 https://www.cnblogs.com/luedong/p/16023061.html
+
+
+⚫kafka消息积压怎么处理？
+
+⚫kafka如何实现顺序消息？
+
+⚫kafka broker如何参数调优？
