@@ -164,7 +164,13 @@ https://www.cnblogs.com/luedong/p/16023061.html
 
 
 ⚫kafka消息积压怎么处理？
+1.多线程
+2.创建更大的topic设置更多的分区和消费者，将原数据写入到新的topic中
 
 ⚫kafka如何实现顺序消息？
+1.时间轮
+2.内存队列+kafka
+3.redis zset + kafka
+4.rocksDB + kafka
 
 ⚫kafka broker如何参数调优？
