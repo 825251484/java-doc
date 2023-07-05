@@ -87,6 +87,15 @@ Group Coordinator渐进式的rebalance
 当有第三个消费者C3加入时，Group Coordinator会收到join Group通知，然后Group Coordinator会通知C1 C2进行rebalance，这两个消费者将自己持有的分区发送给Group Coordinator，
 Group Coordinator经过计算，得出应该把P2分给C3，在整个rebalance这期间第一阶段就是所有分区正常消费，第二个阶段P2停止消费，第二阶段结束P2正常消费
 
+⚫kafka生产者分区策略（发送消息出现延迟，如何调整）
+生产者默认分区策略：RoundRobin
+RoundRobin：先将消息缓存到RecordAccumulator内部batches中内存16k大小的ByteBuffer中，如果不设置key，消息将以轮询的方式发送不同的分区的batches中,每个batches填不满
+Sticky：kafka2.4之后增加的粘性分区策略，将每个batches中16k大小填满在轮询到下一个分区
+区别：rr和sticky分区策略在数据延时上主要是因为在rr策略下，一个batch不能填满，导致相同一批数据rr策略会产生更多的batch，导致后续flush()的时候开销更大引起的
+如果在发送消息特别快，然后分区数又很少（10个以内），linger.ms>100，消息的key非空，两者分区策略差异不是很大
+
+参考链接；https://www.bilibili.com/video/BV1M8411G7Td/?spm_id_from=333.788&vd_source=80c3ca1a77e037f4d86501ba97d54dbb
+
 ⚫kafka的RecordAccumulator
 	RecordAccumulator内部结构
 	    private final ConcurrentMap<TopicPartition, Deque<ProducerBatch>> batches;
@@ -106,23 +115,6 @@ Group Coordinator经过计算，得出应该把P2分给C3，在整个rebalance�
  min.insync.replicas=2： Kafka ISR 列表中最小同步副本数
  replication.factor=3，用来设置主题的副本数。每个主题可以有多个副本，副本位于集群中不同的broker上，也就是说副本的数量不能超过broker的数量，否则创建主题时会失败。
  链接：https://www.bilibili.com/video/BV1Ss4y1h7ea/?spm_id_from=333.788&vd_source=80c3ca1a77e037f4d86501ba97d54dbb
-
-
-⚫kafka会不会丢数据
-即使我们把参数配置的很完善，也会丢失数据的两种场景：
-一 当数据写到足够多的PageCache时，就会向生产者反馈acks响应，告知数据写入成功，但是如果此时，这些PageCache所在的操作系统挂了，如果数据还没写到硬盘上，这时数据就真的丢失了。
-二 当副本数据所在的硬盘坏掉了，也会丢失数据。
-注意：
-我们可以改变以下参数来调整刷盘的频率，但是kafka官方不建议使用者调整。会影响kafka的性能，同时kafka官方认为可以用过副本机制来保证数据的可靠性
-log.flush.interval.messages=10000 在持久化到磁盘前message最大接收条数。
-log.flush.interval.ms=1000 任何主题中的消息在刷新到磁盘之前保留在内存中的最长时间（毫秒）。如果未设置，则使用 log.flush.scheduler.interval.ms 中的值
-log.flush.scheduler.interval.ms 日志刷新程序检查是否需要将任何日志刷新到磁盘的频率（以毫秒为单位）
-
-⚫kafka官网文档：https://kafka.apache.org/documentation.html#configuration
-https://www.bilibili.com/video/BV1Ss4y1h7ea/?spm_id_from=333.788&vd_source=80c3ca1a77e037f4d86501ba97d54dbb
-
-⚫如何尽量防止数据丢失呢？
-将min.insync.replicas=2设置多副本，并设置log.dirs='多目录'：为了使每个目录对应一个独立的硬盘，防止硬盘坏了导致所有数据丢失
 
 ⚫kafka内存池化技术
 Kafka通过使用内存缓冲池，让整个消息发送的过程中，内存空间可以循环利用，有效的降低了JVM GC的触发次数，从而提高了消息发送的速度，提升了吞吐量。
@@ -145,6 +137,22 @@ linger.ms默认0发送消息的延时时间，当达到这个时间，消息就�
 compression.type消息压缩，减少占用的带宽（如果消费能力本身就不足，一般不建议压缩了，消息能力不足会消息积压，所以减少批量）
 max.in.flight.requests.per.connection=5 指定了生产者在接收到服务器相应之前可以发送多个消息，值越高，占用的内存越大，当然也可以提升吞吐量，发生错误时，可能会造成数据的发送顺序改变，其默认值是5.
 并且建议max.in.flight.requests.per.connection 的值小于 5。如何保证顺序，下面详解
+
+⚫kafka会不会丢数据
+即使我们把参数配置的很完善，也会丢失数据的两种场景：
+一 当数据写到足够多的PageCache时，就会向生产者反馈acks响应，告知数据写入成功，但是如果此时，这些PageCache所在的操作系统挂了，如果数据还没写到硬盘上，这时数据就真的丢失了。
+二 当副本数据所在的硬盘坏掉了，也会丢失数据。
+注意：
+我们可以改变以下参数来调整刷盘的频率，但是kafka官方不建议使用者调整。会影响kafka的性能，同时kafka官方认为可以用过副本机制来保证数据的可靠性
+log.flush.interval.messages=10000 在持久化到磁盘前message最大接收条数。
+log.flush.interval.ms=1000 任何主题中的消息在刷新到磁盘之前保留在内存中的最长时间（毫秒）。如果未设置，则使用 log.flush.scheduler.interval.ms 中的值
+log.flush.scheduler.interval.ms 日志刷新程序检查是否需要将任何日志刷新到磁盘的频率（以毫秒为单位）
+
+⚫kafka官网文档：https://kafka.apache.org/documentation.html#configuration
+https://www.bilibili.com/video/BV1Ss4y1h7ea/?spm_id_from=333.788&vd_source=80c3ca1a77e037f4d86501ba97d54dbb
+
+⚫如何尽量防止数据丢失呢？
+将min.insync.replicas=2设置多副本，并设置log.dirs='多目录'：为了使每个目录对应一个独立的硬盘，防止硬盘坏了导致所有数据丢失
 
 ⚫kafka消息顺序及幂等性问题
 Kafka本身支持 At least once消息送达语义，因此实现消息发送的幂等关键是要实现 Broker端消息的去重。为了实现消息发送的幂等性，Kafka引入了两个新的概念：
@@ -174,5 +182,18 @@ https://www.cnblogs.com/luedong/p/16023061.html
 4.rocksDB + kafka
 
 ⚫kafka broker如何参数调优？
+	socket.receive.buffer.bytes：102400，单位是byte，socket接受缓冲区的大小，提高发送速度，一般根据网络传输速度和往返延迟时间来设置,如果使用操作系统的socket缓存区那就设置成-1
+	socket.send.buffer.bytes：102400
+	num.network.threads：3，网络服务器用于接受和发送网络请求的线程数，默认是3，提高零拷贝的线程数
+	queued.max.requests：500，请求队列中队列长度的大小，能放多少个请求，在sender子线程发送消息到borker时，队列满了之后会被阻塞。
+	queued.max.requests.byte：-1，	请求队列容量的大小
+	num.io.threads:8，磁盘io刷盘的线程
+刷盘频率参数：时间和条数
+	log.flush.interval.ms：null，多少时间把pagecache中刷到硬盘上，
+	log.flush.interval.messages:Long.MAX_VALUE，累计多少条数据一起刷到硬盘上。 =1代表同步刷盘，此时就要增加num.io.threads:8参数，但一般刷盘都交给操作系统linux系统来刷盘
+主从复制参数：
+	num.replica.fetchers:1，主从复制的线程数，如果设置acks=all那么就要提高该线程数，因为生产者发送消息，borker会将所有isr节点都同步之后再返回，如果设置1那么，ack响应就会很慢。
+	replica.fetch.min.bytes:1，每次复制时复制的字节数，
+	replica.fetch.wait.max.ms:500：每次拉取等待的时间，要么达到上面的字节数在拉取复制，要么等待500ms拉去一次复制
 
-⚫kafka生产者发送消息出现延迟
+参考链接：https://www.bilibili.com/video/BV1FP4y167nH/?spm_id_from=333.788&vd_source=80c3ca1a77e037f4d86501ba97d54dbb
