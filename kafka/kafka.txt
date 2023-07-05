@@ -174,3 +174,5 @@ https://www.cnblogs.com/luedong/p/16023061.html
 4.rocksDB + kafka
 
 ⚫kafka broker如何参数调优？
+
+⚫kafka生产者发送消息出现延迟
