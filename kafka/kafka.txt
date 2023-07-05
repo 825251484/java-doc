@@ -128,7 +128,14 @@ Kafka通过使用内存缓冲池，让整个消息发送的过程中，内存空
 	当生产者发送数据时，会根据消息体的大小向BufferPool申请一块内存16k大小的ByteBuffer，如果超过16k那么就向nonPooledAvaliableMemory申请一块内存空间来存放消息，
 	因为对于磁化的空间中的内存是可以循环重复使用的，这块内存的使用和释放不需要等待GC来回收的，（就像线程池中的线程一样，一个道理，重复使用），
 	没有GC的操作那么就不会发送STW，这也是kafka高性能，高吞吐的原因之一
-	非磁化内存是需要GC来处理的，所以在生产中，我要尽量控制消息的大小，从而控制频繁的GC导致kafka的性能下降，（如果消息太大可以调整batch.size=16384）。
+⚫生产者阻塞（发送缓慢）原因：
+	非磁化内存使用的是堆内存，需要GC来处理释放内存，因此就比较消耗时间，发送消息就会比较缓慢，所以在生产中，我要尽量控制消息的大小，从而控制频繁的GC导致kafka的性能下降，（如果消息太大可以调整batch.size=16384）。
+	解决：
+	1.提高RecordAccumulator:buffer.memory设置合理范围值，池化空间，压测来决定 。 
+	2.batch.size大小设置ByteBuffer大小，默认16k，max.request.size:1048576限制来单个请求中发送消息的batch数，用这个数除以batch.size，得出一次发送请求中能发送多少个batch
+	3.message.max.bytes:1000012限制borker端接收单条消息的大小，如果这个参数小于max.request.size会报错，因为发送比接收的大，所以要设置大于max.request.size
+	4.fetch.max.bytes:5M（5242880） 消费者拉取消息的大小。
+	建议：max.request.size < message.max.bytes < fetch.max.bytes
 	
 注意：
 buffer.memory（默认32MB），这个参数代表的是RecordAccumulator所能容纳的最大的recordSize，其实这个参数经过层层传递，最终传给了BufferPool，由BufferPool来实际管理RecordAccumulator的容量。RecordAccumulator只需要关注自身的一些append、ready等等逻辑就好啦，职能很明确。
@@ -197,3 +204,7 @@ https://www.cnblogs.com/luedong/p/16023061.html
 	replica.fetch.wait.max.ms:500：每次拉取等待的时间，要么达到上面的字节数在拉取复制，要么等待500ms拉去一次复制
 
 参考链接：https://www.bilibili.com/video/BV1FP4y167nH/?spm_id_from=333.788&vd_source=80c3ca1a77e037f4d86501ba97d54dbb
+
+⚫pageCache污染
+长尾消费导致的pageCache污染：已经被写到硬盘上的很久的数据。被消费，重新加载到pagecache中。
+
