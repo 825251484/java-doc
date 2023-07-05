@@ -184,7 +184,7 @@ https://www.cnblogs.com/luedong/p/16023061.html
 
 ⚫kafka如何实现延时消息？
 1.时间轮
-2.内存队列+kafka
+2.内存队列+kafka，参考rocketMq
 3.redis zset + kafka
 4.rocksDB + kafka
 
