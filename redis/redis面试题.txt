@@ -1,6 +1,8 @@
 ﻿⚫redis端口号6379
 keys test* 模糊查询key
-
+SCAN 0 MATCH * COUNT 50  查询前50个key，match是正则匹配
+EXISTS key 判断key是否存在
+type key查询key得数据类型
 
 ⚫redis之reactor模型
 redis底层是基于reactor单线程模型开发设计的。也可以叫做事件驱动模型，
