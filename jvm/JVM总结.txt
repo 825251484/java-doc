@@ -322,3 +322,7 @@ https://www.cnblogs.com/ronnieyuan/p/12349959.html
 ⚫Java虚拟机在“用户线程”都结束后会后退出。
 守护线程在没有用户线程可服务时自动离开
 Java垃圾回收线程就是一个典型的守护线程
+
+⚫finally和return的执行顺序
+基本变量：如果try{return}finally{}:先执行finally中内容，在执行return，finally中内容不影响return返回值
+基本变量：如果try{return1}finally{return2} : 执行finally中内容，然后直接return2，不会返回return1。
