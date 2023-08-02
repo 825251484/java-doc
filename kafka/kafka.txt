@@ -208,3 +208,5 @@ https://www.cnblogs.com/luedong/p/16023061.html
 ⚫pageCache污染
 长尾消费导致的pageCache污染：已经被写到硬盘上的很久的数据。被消费，重新加载到pagecache中。
 
+⚫kafka如何防止脑裂
+在zk中存储一个controller_epoch值，这个值记录当前的控制器是第几代控制器，如果发生脑裂，那么会产生两个controller节点，新节点得epoch会+1，这时向新controller发生得请求会携带旧得epoch，小于新controller中得值，认为是无效得。
