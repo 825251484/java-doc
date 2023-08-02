@@ -10,3 +10,9 @@ es分词器有哪些
 standard 默认分词器，按此切分，小写处理
 keyword不分词
 ik_max_word中文细粒度和ik_smart中文粗粒度智能分词
+
+
+es分页查询方式
+1.from/size方式：
+2.scroll方式
+https://wenku.baidu.com/view/aa1f3a4713a6f524ccbff121dd36a32d7275c704.html?_wkts_=1690992457443&bdQuery=es%E5%88%86%E9%A1%B5%E6%9F%A5%E8%AF%A2%E5%8E%9F%E7%90%86
