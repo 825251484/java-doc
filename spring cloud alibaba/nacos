@@ -1,11 +1,96 @@
-nacos如何防止脑裂？
+⚫nacos如何防止脑裂？
+目前ZooKeeper和Raft都是过半即可，所以对于分区是容忍的。如5台机器，分区发生后分成2部分，一部分3台，另一部分2台，这2部分之间无法相互通信 其中，含有3台的那部分，仍然可以凑成一个过半，仍然可以对外提供服务，
+但是它不允许有server再挂了，一旦再挂一台则就全部不可用了。 含有2台的那部分，则无法提供服务，即只要连接的是这2台机器，都无法执行相关请求。
 https://code84.com/740247.html
 https://www.bilibili.com/video/BV1ty4y1r7BR/?p=20&vd_source=80c3ca1a77e037f4d86501ba97d54dbb    一小时开始看
 
 
-nacos注册发现
+⚫nacos注册发现
+注册：
+	服务启动之后，将自己注册到注册中心，将当前服务的信息包含ip、端口号、服务名、分组名、集群名等信息封装为一个Instance对象，会根据Instance中的信息创建一个BeatInfo对象，创建一个心跳对象，用于心跳检测。
+	然后将Instance对象封装成一个Service对象，保存在到一个ConcurrentHashMap中。Map<String, Map<String, Service>>。（方法：addIpAddresses）
+	服务创建完成之后，开启一个定时任务（5s），检查当前服务中的各个实例是否在线，如果实例上次心跳时间大于15s就将其状态设置为不健康，如果超出30s，则直接将该实例删除；
 
 
-nacos配置中心，动态更新配置原理
+集群数据同步与存储：
+	如果使用持久化数据，通过raft协议+CountDownLatch来，同步超过过半节点，返回成功。
+	如果使用非持久化数据，通过Distro协议+任务队列+异步，的方式同步到其他节点中
+
+发现：
+	客户端通过定时任务定时从服务端拉取服务数据保存在本地缓存，服务端在发生心跳检测、服务列表变更或者健康状态
+	改变时会触发推送事件，在推送事件中会基于UDP通信将服务列表推送到客户端，同时开启定时任务，每隔10s定时推送数据到客户端。
+
+⚫服务注册与集群同步代码：在整个服务注册与数据同步的过程中，使用synchronized同步锁，避免并发修改的安全问题
+public void addInstance(String namespaceId, String serviceName, boolean ephemeral, Instance... ips)
+    throws NacosException {
+	// 监听服务列表用到的key，服务唯一标识，例如：com.alibaba.nacos.naming.iplist.ephemeral.public##DEFAULT_GROUP@@order-service
+    String key = KeyBuilder.buildInstanceListKey(namespaceId, serviceName, ephemeral);
+    // 获取服务
+    Service service = getService(namespaceId, serviceName);
+    // 同步锁，避免并发修改的安全问题
+    synchronized (service) {
+        // 1）获取要更新的实例列表，这个方法中将服务注册到注册列表中，使用读写分离的思想，拷贝一份集合，然后添加一份实例，原集合可以继续访问，拷贝出的集合添加结束之后覆盖旧的集合。
+        List<Instance> instanceList = addIpAddresses(service, ephemeral, ips);
+		// 2）封装实例列表到Instances对象
+        Instances instances = new Instances();
+        instances.setInstanceList(instanceList);
+		// 3）完成 注册表更新 以及 Nacos集群的数据同步，
+        consistencyService.put(key, instances);
+    }
+}
+
+⚫ConcurrentHashMap结构：Map(namespace,Map(group::serviceName, Service) ， Service = Map<String,Cluster>
+namespace：环境隔离的作用  
+group:serviceName：分组，服务名称
+service：Map<String,Cluster> key为集群名称，value = Set<Instance> 是集群中各个实例的具体信息。
+Instance：实例信息，包含实例的IP、Port、健康状态、权重等等信息
+参考链接
+https://blog.csdn.net/qq_34700865/article/details/118760601
+https://blog.csdn.net/BruceLiu_code/article/details/126088029
+https://blog.csdn.net/m0_37235955/article/details/115036527
+https://xiaoe.kaikeba.com/p/t_pc/course_pc_detail/video/v_6361f70fe4b01126ea9ef746?product_id=p_634d0ef1e4b00a4f37503d8f&content_app_id=&type=6      先登录在复制链接
+
+
+
+
+⚫nacos的raft一致性算法原理、nacos选举过程
+raft是分布式数据一致性算法，一个正常健康的集群数据肯定时一致的，那么当发送网络分区问题时，就会造成数据不一致的问题，那么raft就是用来解决数据不一致的问题，
+raft算法中每个实例有可能是三种角色中的其中一种：follower从节点、candidate候选人节点、leader主节点
+当集群重启时，或者部分集群中没有leader节点时（follower节点没有收到到leader节点的心跳，心跳是一个rpc的请求），都会发送leader选举，
+过程：
+	所有follower节点以先到先得的原则，会增加自己的当前term编号并转变为candidate节点，如果在成为candidate之前，收到来至其他candidate节点的投票请求，那么这个节点就保持follower状态，避免争抢成为candidate，
+那么成为candidate节点之后，首先向自己投一票，然后向其他节点发起投票请求：三种情况；
+		1.赢得选举，成为leader
+			如果candidate节点收到超过一半以上节点的投票，那么该candidate节点就会成为leader节点，然后向其他节点发送心跳，确立自己的leader地位。（每个实例只有一张选票）
+		2.选举失败，其他节点成为leader
+			如果选票没有超过一半，并且收到其他节点的leader确认的请求，那么首先会比较请求中term编号，如果比自己小，说明leader的term过期了，就会拒绝leader请求，并继续保持候选人的身份。
+			如果请求中term比自己大，承认对方的地位，从candidate转变成follower。
+		3.选票被瓜分，选举失败
+			如果选票被瓜分，没有产生leader，那么所有的候选人节点candidate，等待超时后发起下一轮选举，为了防止下一次选举选票被瓜分，raft采用随机超时机制，这样大概率情况下某一个节点会率先成位候选人节点，并得到更多的选票。
+		注意：leader选举过程中，一是会比较term。二是也会比较日志的完整程度，leader会诞生在term较大的和日志复杂比较完成的节点中。
+网络分区的极端情况，会造成数据不一致的问题，raft如何解决：
+	1、请求到达leader前，leader挂了：数据未到达集群，不会有数据一致性问题，
+	2、请求到达leader后，同步数据前，leader挂了：leader在复制数据之前挂了，那么说明client端未收到集群的响应，这个时候client端会重新发送请求。集群中会leader选举选出新的leader来处理客户端请求
+	3、同步部分数据，leader挂了：重新选举，
+		①新leader产生在已经复制完的节点上，那么会继续执行请求将日志复制完成，然后响应给client端
+		②新leader产生在未复制完的节点上，那么会放弃这个请求，client端发送失败后，会重新再次发送写请求。
+	4、leader已经同步数据到过半的节点上，并响应给客户端，同时向follower节点发送同步完成的请求，这个时候挂了：也就是说follower节点没有收到同步完成的确认信号，这个时候部分节点是没有日志信息的。
+		raft是选举有一个领导人完全原则，也就是在同一个term中，leader会产生在日志更全的节点中，新的leader产生后，会把日志信息在同步给其他follower节点中。
+
+
+那么leader选举有可能造成脑裂的问题，在raft算法中是通过过半机制来保证在脑裂时数据的一致性（查看上一道题答案）
+
+
+
+⚫raft和ZAB算法的区别
+Zab 协议的全称是 ZooKeeper 原子广播协议（ZooKeeper Atomic Broadcast Protocol），目前Zookeeper基于该协议作为共识算法实现了主备模式的系统架构，并以此保证其集群中各个副本数据之间的一致性
+通过队列先进先出的原则保证请求的请求的顺序性
+参考链接：
+https://blog.51cto.com/u_15127555/4740435
+https://www.modb.pro/db/228659
+
+
+
+⚫nacos配置中心，动态更新配置原理
 客户端发起长轮询请求，服务端收到请求之后，比较缓存中的配置和数据库中的配置是否一致，如果不同，将最新的配置返回给客户端，如果相同通过延迟队列延迟30s之后再比较。
 为了保证在30s内发送数据变化及时通知给客户端，服务端采用事件订阅方式来监听服务端本都数据的变化事件，一但收到事件，则触发通知把结果写回到客户端，完成一次数据推送
