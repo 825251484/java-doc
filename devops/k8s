@@ -1,1 +1,164 @@
 
+三、docker是什么
+Docker 是一个开源的应用容器引擎，让开发者可以打包他们的应用以及依赖包到一个可移植的镜像中，然后发布到任何流行的 Linux或Windows操作系统的机器上，也可以实现虚拟化。容器是完全使用沙箱机制，相互之间不会有任何接口。
+一个完整的Docker有以下几个部分组成：
+DockerClient客户端
+Docker Daemon守护进程
+Docker Image镜像
+DockerContainer容器	
+
+什么是K8s （容器编排和管理工具）
+Kubernetes，也被称为K8s或Kube，是谷歌推出的业界最受欢迎的容器编排器。
+K8s是一个最初由Google开发的，用于自动化部署、扩展和管理容器化应用的开源容器编排器技术。
+K8s使部署和管理微服务架构应用程序变得很简单。它通过在集群之上形成一个抽象层来实现这一点，允许开发团队平滑地部署应用程序，而 K8s主要处理以下任务：
+控制和管理应用程序对资源的使用
+自动负载均衡应用程序的多个实例之间请求
+监控资源使用和资源限制，为了可以自动阻止应用消耗过多的资源并且可以再次恢复它们
+如果主机资源耗尽或主机死机，将应用程序实例从一台主机迁移到另一台主机是一个可行的选项
+当有新的主机加入集群时，新增加的额外资源可以被自动使用
+
+
+
+根据应用的访问量自动扩容缩容
+
+
+k8s核心资源对象
+将一个容器container封装成pod，然后deployment负责管理多个pod，维护多个pod，也就是划分1个集群，然后通过service对外将提供多个实例的ip，最后通过ingress对外公共一个统一的域名访问，一个域名对应多个实例，使用ngnix复杂均衡.。
+配置中心：ConfigMap
+定时任务：cronJob
+密钥管理：secret
+服务有状态部署控制：StatefulSet，服务重启需要一些依赖，或者历史数据信息，所以需要存储该信息
+守护进程：DaemonSet
+自动化缩容扩容：Horizontal PodAutoScaler
+
+
+k8s master节点  和普通节点组成结构
+master节点：
+api service管理总线：管理数据和请求
+scheduler任务调度 pod部署算法
+controller manager资源管理 ：
+etcd数据存储
+
+worker node节点：
+kubelet：操作容器运行时docker，操作pod，pod下面是容器docket
+kube proxy为集群提供service功能
+Container Runtime同期运行时：docker
+
+k8s 利器一
+ kubectl命令：
+kubectl get pod 获取pod
+kubectl get pod -o wide获取pod，并查看pod在哪个节点上
+kubectl create deployment 创建pod
+kubectl scale deployment ngnix-deployment --replicas=3 创建三个副本
+kubectl help查看命令 
+kubectl logs 查看对应pod日志
+kubectl describe 查看pod运行详细情况
+kubectl exec -it pod名称 -c 容器名，进入pod中的容器中
+kubectl delete -f 文件，通过文件删除deployment 
+
+如何获取ip（在部署之前是不知道ip的）：
+kubectl expose deployment ngnix-deployment --type=NodePort -- target-port=80 --port=8080 --name=ngnix-service
+先将该ngnix的pod集群封装成service（什么是service：提供对外服务的功能）：然后对外暴漏ip和端口号，这样可以通过service中定义的ip和端口号，
+外部就可以访问该service了，该service下面是pod集群，这个时候就可以通过ip和端口号访问集群，并且service可以做负载均衡，
+通过kubectl get pod 能查看service对外暴漏的ip和端口号
+访问：curl -I 127.0.0.1
+
+deployment 可以做回滚，自动部署，扩容
+
+
+利器二：通过yaml文件操作k8s
+kubectl apply -f deploy.yaml 利用文件创建deployment 
+
+
+什么是pod？
+k8s最小调度单位pod。一个pod中包含一个或者多个容器。同一个pod中多个容器共享网络，和共享存储卷volumes
+
+什么是deployment？
+因为pod ip是部署之后生成的，所以生产环境不能根据ip去访问，所以就用deployment，对pod封装，提高生产力维持pod数目
+通过一下配置来关联pod。对pod封装
+replicas：2 告诉deployment运行两个pod实例：replicaset.app是deployment中封装的一个对象，专门用来管理pod副本
+selector：
+  matchlabels：
+    app：ngnix 
+
+1可以帮我们维持一定数量的pod副本，当pod挂了之后会自动帮我们在创建一个
+2可以实现滚动升级
+strategy
+  rollingUpdate
+    maxSurge：50%  额外增加50%的pod来升级。
+    maxUnavailable：75%    最多停机75%
+  type：rollingUpdate 
+
+3版本回滚L
+kubectl  rollout history deployment 名称   ：查看历史版本
+回滚操作：kubectl rollout undo deployment ngnix-depolyment --to-revision=1：回滚到版本1
+
+
+什么是service？具有相同功能的容器组成一个服务，对外提供一个统一的调用入口地址，提供负载均衡、服务发现等机制
+如何对外提供服务？
+YAML定义service
+metadate：
+  name：ngnix
+spec：
+  ports：
+    -port:80
+     protoco：TCP
+     targetPort:80
+     nodePort：30220   如果不指定端口号，那么端口号就是随机生产的，只有当service部署之后才能查看到端口号
+  clusterIP：None   无头服务，一般配合有状态服务使用
+  selector:
+     app:ngnix
+  type:ClusterIP 这个模式只能集群内部访问，对外暴漏的ip不可以被集群外部服务访问     
+          NodePort  这个模式就可以集群外部服务访问，通过宿主机ip+端口号，可以被外部服务访问
+
+
+ingress类似ngnix：如果集群实例很多都去维护nodePort就比较麻烦，所以用ingress，ingress代表规则，可以用ngnix来实现
+路由访问规则
+例如我们创建两个service，一个是ngnix的service，一个eureka的service，然后定义一个ingress的yaml文件
+这个文件中就配置了一套访问规则，
+rules:
+  -host:test.com   对外暴漏的域名
+   http:
+     paths:
+       - path :/eureka
+         backend:
+           serviceName:eureka-service
+           servicePort:8080
+       - path: /ngnix
+         backend:
+            serviceName:ngnix-service
+            servicePort:8081
+
+然后查看kubectl describe ingress的信息：会展示域名端口和哪些service对应哪些pod
+通过：域名:8080 + /eureka：来访问
+（如果是本地测试需要将域名对应上ip，需要在本机的hosts文件中配置）
+
+
+课程链接
+https://xiaoe.kaikeba.com/p/t_pc/course_pc_detail/video/v_63621e3ce4b068e9c3d199b9?product_id=p_634d0ef1e4b00a4f37503d8f&content_app_id=&type=6
+
+
+什么是etcd和raft什么关系
+etcd
+大名鼎鼎的k8s就使用了etcd保存集群中所有的网络配制和对象的状态信息
+一、etcd的概述 etcd是一个用Go语言开发、分布式的键值存储系统,使用Raft一致性算法来保证数据的一致性。
+etcd是CoreOS公司开发的,是一个强大的工具,适用于存储配置信息、服务发现和共享状态等应用场景。
+二、etcd的数据模型 etcd的核心是一个分布式的键值存储系统。etcd的数据模型就是一个树形结构,类似于文件系统中的目录树
+
+
+什么是devops
+是一组过程、方法与系统的统称，用于促进开发，技术运营，和质量保证部门之间的沟通、协作与整合
+分工：开发，质量保障（自动化测试，）、运维
+行为：设计，开发，编译构建，测试，发布，部署生产、运维、监控
+
+什么是CICD？
+持续集成（开发编码、编译打包、提交代码、集成发布测试环境、人工测试\自动化测试）、持续交付（产品验收），持续部署（通过评审，自动部署）
+整个过程就是CICD所需要做的。
+CICD过程每个阶段都有一系列的技术。例如
+collaborate合作：项目管理工具（jira敏捷，禅道（国内））    ，沟通工具：钉钉、企业微信，文档管理：confluence（viki），mark down
+build：代码仓库管理（github，gitlab，gitBucket），集成发布jenkins，编译打包maven、gradle、docker
+test：junit单元测试、jmeter压力测试
+deploy（部署）：jenkins，DockerHub
+run（运行）：Paas，cloud、k8s，监控：logstash+es+kibana  elk日志收集系统、监控系统rometheus，链路追踪SkyWalking
+
+rometheus(普罗米修斯)是一套开源的监控&报警&时间序列数据库的组合,由 SoundCloud 公司开发
