@@ -18,6 +18,14 @@ volatile一种轻量级的同步机制，可以保证可见性，和顺序性，
 	同时内存屏障另外一个作用是强制刷出各种CPU的缓存数据，因此任何CPU上的线程都能读到这些数据的最新版本
 不能保证原子性，是因为一行代码，在内存中对应很多条指令，执行这些指令时，cpu会切换线程，并不能保证原子性。我们可以通过java.unit.concurrent.automic包中的类 来保证原子性
 
+⚫volatile可见性原理：
+java代码：instance = new Singleton(); //instance是volatile变量
+转成汇编指令：0x01a3de1d: movb $0X0,0X1104800(%esi); 0x01a3de24: lock addl $0X0,(%esp);
+有volatile修饰的共享变量进行写操作时会多出第二行汇编代码，该句代码的意思是对原值加零，其中相加指令addl前有lock修饰。
+通过查IA-32架构软件开发者手册可知，lock前缀的指令在多核处理器下会引发两件事情：
+①将当前处理器缓存行的数据写回到系统内存。
+②这个写回内存的操作，会使在其他CPU里缓存了该内存地址的数据无效。
+
 
 ⚫谈谈CAS
 AtomicInteger保证原子性，原理就是CAS
