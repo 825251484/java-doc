@@ -131,31 +131,27 @@ ingress类似ngnix：如果集群实例很多都去维护nodePort就比较麻烦
 （如果是本地测试需要将域名对应上ip，需要在本机的hosts文件中配置）
 
 
-课程链接
+⚫课程链接
 https://xiaoe.kaikeba.com/p/t_pc/course_pc_detail/video/v_63621e3ce4b068e9c3d199b9?product_id=p_634d0ef1e4b00a4f37503d8f&content_app_id=&type=6
 
 
-什么是etcd和raft什么关系
-etcd
-大名鼎鼎的k8s就使用了etcd保存集群中所有的网络配制和对象的状态信息
-一、etcd的概述 etcd是一个用Go语言开发、分布式的键值存储系统,使用Raft一致性算法来保证数据的一致性。
-etcd是CoreOS公司开发的,是一个强大的工具,适用于存储配置信息、服务发现和共享状态等应用场景。
+⚫什么是etcd和raft什么关系
+etcd：大名鼎鼎的k8s就使用了etcd保存集群中所有的网络配制和对象的状态信息
+一、etcd的概述 etcd是一个用Go语言开发、分布式的键值存储系统,使用Raft一致性算法来保证数据的一致性。etcd是CoreOS公司开发的,是一个强大的工具,适用于存储配置信息、服务发现和共享状态等应用场景。
 二、etcd的数据模型 etcd的核心是一个分布式的键值存储系统。etcd的数据模型就是一个树形结构,类似于文件系统中的目录树
 
 
-什么是devops
-是一组过程、方法与系统的统称，用于促进开发，技术运营，和质量保证部门之间的沟通、协作与整合
-分工：开发，质量保障（自动化测试，）、运维
-行为：设计，开发，编译构建，测试，发布，部署生产、运维、监控
+⚫什么是devops：是一组过程、方法与系统的统称，用于促进开发，技术运营，和质量保证部门之间的沟通、协作与整合
+    分工：开发，质量保障（自动化测试，）、运维
+    行为：设计，开发，编译构建，测试，发布，部署生产、运维、监控
 
-什么是CICD？
-持续集成（开发编码、编译打包、提交代码、集成发布测试环境、人工测试\自动化测试）、持续交付（产品验收），持续部署（通过评审，自动部署）
-整个过程就是CICD所需要做的。
+⚫什么是CICD？
+持续集成（开发编码、编译打包、提交代码、集成发布测试环境、人工测试\自动化测试），持续交付（产品验收），持续部署（通过评审、自动部署）。整个过程就是CICD所需要做的。
 CICD过程每个阶段都有一系列的技术。例如
-collaborate合作：项目管理工具（jira敏捷，禅道（国内））    ，沟通工具：钉钉、企业微信，文档管理：confluence（viki），mark down
-build：代码仓库管理（github，gitlab，gitBucket），集成发布jenkins，编译打包maven、gradle、docker
-test：junit单元测试、jmeter压力测试
-deploy（部署）：jenkins，DockerHub
-run（运行）：Paas，cloud、k8s，监控：logstash+es+kibana  elk日志收集系统、监控系统rometheus，链路追踪SkyWalking
+   collaborate合作：项目管理工具（jira敏捷，禅道（国内））    ，沟通工具：钉钉、企业微信，文档管理：confluence（viki），mark down
+   build：代码仓库管理（github，gitlab，gitBucket），集成发布jenkins，编译打包maven、gradle、docker
+   test：junit单元测试、jmeter压力测试
+   deploy（部署）：jenkins，DockerHub
+   run（运行）：Paas，cloud、k8s，监控：logstash+es+kibana  elk日志收集系统、监控系统rometheus，链路追踪SkyWalking
 
-rometheus(普罗米修斯)是一套开源的监控&报警&时间序列数据库的组合,由 SoundCloud 公司开发
+备注：rometheus(普罗米修斯)是一套开源的监控&报警&时间序列数据库的组合,由 SoundCloud 公司开发
