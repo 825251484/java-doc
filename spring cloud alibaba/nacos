@@ -83,12 +83,15 @@ raft算法中每个实例有可能是三种角色中的其中一种：follower�
 
 
 ⚫raft和ZAB算法的区别
-Zab 协议的全称是 ZooKeeper 原子广播协议（ZooKeeper Atomic Broadcast Protocol），目前Zookeeper基于该协议作为共识算法实现了主备模式的系统架构，并以此保证其集群中各个副本数据之间的一致性
+ZAB 协议的全称是 ZooKeeper 原子广播协议（ZooKeeper Atomic Broadcast Protocol），目前Zookeeper基于该协议作为共识算法实现了主备模式的系统架构，并以此保证其集群中各个副本数据之间的一致性
 通过队列先进先出的原则保证请求的请求的顺序性
 参考链接：
 https://blog.51cto.com/u_15127555/4740435
 https://www.modb.pro/db/228659
 
+
+⚫哪些技术应用了raft算法
+比如 Etcd(K8S)、Consul，nacos
 
 
 ⚫nacos配置中心，动态更新配置原理
