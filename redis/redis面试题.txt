@@ -182,6 +182,7 @@ Redisson:
 
 ⚫看门口狗机制原理：创建一个TimerTask任务，放入到Timeout中，Timeout作用就是将延迟任务放在时间轮中，延迟时间时10s，时间轮通过环形数组实现，数组中每个节点对应一个双向链表，链表中封装的就是TimerTask。锁的续期是通过一个RFuture异步线程来续期的，通过线程id和key的方式使用lua表达式去判断锁是否存在，存在就续期30s，不存在返回0。如果续期成功，那么递归调用renewExpiration本方法，再次创建一个10s的延迟任务。
 https://baijiahao.baidu.com/s?id=1714290103234167995&wfr=spider&for=pc
+https://juejin.cn/post/7269385060612309007?searchId=202308261751074239113F5BCC10507222
 
 注意：
 1.如果设置了过期时间，那么看门狗不会生效。
