@@ -37,6 +37,8 @@ ES主节点作用（Master）
     Ingest节点的功能抽象为：大数据处理环节的ETL（抽取、转换、加载）
     所有的节点都是默认支持ingest的，任何节点都可以处理ingest请求
     注意：监控数需要走ingest node进入集群，所以不建议关闭ingest功能
-
-
 参考：http://v5blog.cn/pages/29f384/#_2-0-%E6%9E%B6%E6%9E%84%E4%BB%8B%E7%BB%8D
+
+
+ES数据同步：
+https://juejin.cn/post/6844903958318678023
