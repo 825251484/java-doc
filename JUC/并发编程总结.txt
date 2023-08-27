@@ -186,10 +186,18 @@ ThreadPoolExecutor：推荐使用
 	DiscardPolicy：丢弃该任务。不做任何处理
 4.核心线程数的计算：参考公式：CPU核数 /（1 - 阻塞系数 ） 阻塞系数在 0.8~0.9 之间
 
-线程池复用原理：
+
+⚫线程池复用原理：
+当第一次启用线程池时，执行excute方法，通过addWoker()方法，创建核心线程来执行任务，该方法中，传入Runnable（任务）参数new了一个Worker对象，该类实现了Runnable接口，继承了AQS(用于线程执行任务时加锁操作)，并且在Worker构造方法中创建了一个Thread对象，
+并且会调用t.start();启动线程，启动线程之后，该线程执行的任务就是Worker中的run()方法，public void run() { runWorker(this); }，runWorker是线程复用的核心：当核心线程数执行完任务后，该方法并没有结束，
+而是一个while循环，不断的调用getTask()方法，从阻塞队列中获取任务，然后调用run方法执行任务。getTask()方法：会通过一个死循环来从队列中获取任务，
+1.如果工作线程数大于核心线程数，则通过poll()从队列取任务，取完队列后，线程销毁
+2.如果工作线程数小于核心线程数，则通过take()从队列取任务，取完队列后，线程阻塞；（这2个方法的区别是：take()取任务时，如果队列中没有任务了会调用await()阻塞当前线程）
+如果队列中的任务为0，就会阻塞当前线程，这样线程就不会回收了。线程的唤醒是在执行execute方法时，当调用workQueue.offer()方法，将任务放入阻塞队列时，会调用Condition.signal()方法唤醒一个之前阻塞的线程。
+链接：https://www.nowcoder.com/discuss/353159131865489408
 
 
-自定义线程池：
+⚫自定义线程池：
 	自定义拒绝策略：实现接口RejectedExecutionHandle重写rejectedExecution(Runnable r,ThreadPoolExecutor executor)
 	public void rejectedExecution(Runnable r,ThreadPoolExecutor executor){
 	  throw new BusinessException("当前系统繁忙，请稍后再试");
