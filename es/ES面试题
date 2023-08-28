@@ -41,4 +41,14 @@ ES主节点作用（Master）
 
 
 ES数据同步：
+现在主分片上执行，然后并发的将请求转发到副本分片上执行，执行成功后conmit。向客户端返回成功
 https://juejin.cn/post/6844903958318678023
+
+ES补偿机制，防止数据丢失：
+ES执行增删改操作时，先将记录在内存buffer和translog中，但是写translog时机有两种，一种时同步request：可靠性更高，一种是异步async：默认5s
+当es操作提交时，translog就会被落盘，然后索引数据还在内存中，以每秒的速度写入到文件系统，在又文件系统执行落盘，如果在这1s内es挂了。可以使用translog
+来恢复数据。同时translog落盘，先清除掉上次的translog文件，再创建一个新的translog文件。
+
+
+es调优：
+https://www.sohu.com/na/431632613_411876
