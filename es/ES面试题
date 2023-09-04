@@ -47,8 +47,11 @@ https://juejin.cn/post/6844903958318678023
 
 ES补偿机制，防止数据丢失：
 ES执行增删改操作时，先将记录在内存buffer和translog中，但是写translog时机有两种，一种时同步request：可靠性更高，一种是异步async：默认5s
-当es操作提交时，translog就会被落盘，然后索引数据还在内存中，以每秒的速度写入到文件系统，在又文件系统执行落盘，如果在这1s内es挂了。可以使用translog
+当es操作提交时，translog就会被落盘，然后索引数据还在内存中，以每1s的速度写入到文件系统，在将文件系统执行落盘，如果在这1s内es挂了。可以使用translog
 来恢复数据。同时translog落盘，先清除掉上次的translog文件，再创建一个新的translog文件。
+每1s写入的数据在文件系统中是以segment形式存在，因为小的segment太多，落盘就会影响性能，所以es开启一个新的线程不断的将segment做数据合并，然后文件
+系统以每30s的速度写入到磁盘中。
+
 
 
 es调优：
