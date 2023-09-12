@@ -23,4 +23,10 @@ SkyWalking系统整体由四部分构成：
 ⚫SkyWalking UI界面：
 仪表盘、拓扑图、追踪、性能剖析、日志等
 
-⚫实现
+⚫Agent实现
+Skywalking并不需要修改应用程序代码，五侵入性的，就是通过javaAgent探针技术对数据进行采集，javaAgent是可以实现虚拟机级别的AOP功能
+原理就是：启动应用之前通过-javaagent参数指定一个jar包，jar包中封装了代理agant方法，可以实现动态增强class相关功能
+jar包中有一个重要的方法premain，这个方法中会通过ByteBuddy来做字节码增强，在对应用程序采集数据，然后通过http或者grpc将数据上报给OPA后台
+OAP将数据收集分析整理存储在es或者mysql中。UI界面提供可视化界面提供查看链路性能指标等数据
+
+链接：https://www.cnblogs.com/looyee/articles/17045875.html
