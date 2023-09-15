@@ -56,6 +56,11 @@ K8s使部署和管理微服务架构应用程序变得很简单。它通过在�
  2、利器二：通过yaml文件操作k8s
  kubectl apply -f deploy.yaml 利用文件创建deployment 
 
+⚫K8S卷类型
+临时存储卷emptyDir
+节点存储卷hostPath：这种类型的卷将文件或目录从主机节点的文件系统挂载到您的Pod中。
+网络存储卷：NFS、GlusterFS、rbd(块设备)、cephFS (文件系统) 具有持久能力的存储;
+
 
 ⚫有状态和无状态
     1、无状态服务对象-Deployment，用于部署无状态的服务，一般用于管理维护企业内部无状态的微服务，比如configserver、zuul、springboot。
