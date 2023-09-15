@@ -57,11 +57,23 @@ K8s使部署和管理微服务架构应用程序变得很简单。它通过在�
  kubectl apply -f deploy.yaml 利用文件创建deployment 
 
 
+⚫有状态和无状态
+    1、无状态服务对象-Deployment，用于部署无状态的服务，一般用于管理维护企业内部无状态的微服务，比如configserver、zuul、springboot。
+其可以管理多个副本的Pod实现无缝迁移、自动扩容缩容、自动灾难恢复、一键回滚等功能。其服务部署结构模型是Deployment->ReplicaSet->Pod；Deployment工作在ReplicaSet之上，用于管理无状态应用，通过“控制器模式”，来操作 ReplicaSet 的个数和属性，
+进而实现“水平扩展 / 收缩”和“滚动更新”这两个编排动作，也就是说，Deployment 控制器实际操纵的是ReplicaSet 对象，而不是 Pod 对象
+    2、有状态服务-statefuleset用于管理有状态应用程序的工作负载API对象。比如在生产环境中，可以部署ElasticSearch集群、
+MongoDB集群或者需要持久化的RabbitMQ集群、Redis集群、Kafka集群和ZooKeeper集群等
+
 ⚫什么是pod？
 k8s最小调度单位pod。一个pod中包含一个或者多个容器。同一个pod中多个容器共享网络，和共享存储卷volumes
 
 
 ⚫什么是deployment？
+为了更好地解决服务编排的问题，k8s在V1.2版本开始，引入了deployment控制器，它是工作负载资源中的一种，主要针对的无状态应用程序pods的编排问题。
+值得一提的是，这种控制器并不直接管理pod，而是通过管理replicaset来间接管理pod，即：deployment管理replicaset，replicaset管理pod。
+Deployment 控制器实际操纵的是ReplicaSet 对象，而不是 Pod 对象
+deployment构建在replicaset之上，增加了一些新的功能强大的编排策略。所以deployment比replicaset的功能更强大
+
 因为pod中ip是部署之后生成的，所以生产环境不能根据ip去访问，所以就用deployment，对pod封装
 通过以下配置来关联pod。对pod封装：
   replicas：2 // 告诉deployment运行两个pod实例：replicaset.app是deployment中封装的一个对象，专门用来管理pod副本
@@ -78,7 +90,9 @@ k8s最小调度单位pod。一个pod中包含一个或者多个容器。同一�
          maxSurge：50%  额外增加50%的pod来升级。
          maxUnavailable：75%    最多停机75%
        type：rollingUpdate 
-  3、版本回滚
+  3、版本回滚（灰度发布）
+Deployment也支持用户保留其滚动更新历史中的旧ReplicaSet对象版本，这赋予了Deployment进行应用回滚的能力：用户可按需回滚到指定的历史版本。（灰度发布）
+Deployment可保存的历史版本数量由“spec.revisionHistoryLimit”属性进行定义。当然，也只有保存于revision历史中的ReplicaSet版本可用于回滚，因此，用户要习惯性地在更新操作时指定保留旧版本
      kubectl  rollout history deployment 名称   ：查看历史版本
      回滚操作：kubectl rollout undo deployment ngnix-depolyment --to-revision=1：回滚到版本1
 
