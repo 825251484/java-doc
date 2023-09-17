@@ -332,6 +332,8 @@ G1算法中通过：写屏障+SATB来防止对象被漏标
 			清理阶段：这一步是不会在内存中移动对象的，这个阶段如果发现完全没有活对象的region就会将其整体回收到可分配region列表中。 清除空Region
 		回收阶段：阶段是全暂停的。它负责把一部分region里的活对象拷贝到空region里去（并行拷贝），然后回收原本的region的空间。Evacuation阶段可以自由选择任意多个region来独立收集构成收集集合（collection set，简称CSet），CSet集合中Region的选定依赖于上文中提到的停顿预测模型，该阶段并不evacuate所有有活对象的region，只选择收益高的少量region来evacuate，这种暂停的开销就可以（在一定范围内）可控
 
+以上内容需要修正
+https://zhuanlan.zhihu.com/p/161204689
 
 ⚫cardTable和Rset是用来干嘛的？
 在CMS算法中:
