@@ -1,3 +1,16 @@
+⚫mysql ACID实现机制
+1、原子性(Atomicity)：原子操作，提交/回滚
+2、一致性(Consistency)：主键/唯一/外键约束
+3、隔离性(Isolation)：
+	四种隔离级别：
+		读未提交(RU)：直接读取最新版本
+		读已提交(RC)：每次读创建新ReadView
+		可重复读(RR)：事务首次读创建ReadView
+		串行化(S)：所有读操作加共享锁
+4、持久性(Durability)：日志先于数据落盘，日志二阶段提交
+
+
+
 ⚫什么是MVCC？有什么作用？
 是一种多版本并发访问控制技术，为了解决不同事物之间的隔离性的问题。并且在mysql中只有RC和RR才支持mvcc，mysql中的MVCC实现主要依赖undolog和readview，
 undolog中存储的是每条记录更新（update、delete操作）的版本链，在每一行数据中有两个隐藏字段，一个是事务id，全局唯一，一个是回滚指针，指向上一个版本的数据行。
