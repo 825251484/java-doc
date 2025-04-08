@@ -76,8 +76,8 @@
 
 
 ⚫索引条件下推（ICP）
-    说明：官方索引条件下推： Index Condition Pushdown,简称ICP。是MySQL5.6对使用索引从表中检索行的一种优化。可以通过参数optimizer_switch控制ICP的开始和关闭。
-    注意：对于InnoDB表ICP仅用于辅助索引。
+    说明：官方索引条件下推： Index Condition Pushdown,简称ICP。是MySQL5.6对使用索引从表中检索行的一种优化。可以通过参数optimizer_switch控制ICP的开始和关闭。索引下推（Index Condition Pushdown, ICP）是一种数据库查询优化技术，它允许数据库引擎在使用索引检索数据的同时，将部分WHERE条件下推到存储引擎层进行过滤，而不是在服务器server层才进行过滤
+    注意：对于InnoDB表ICP仅用于辅助索引。非索引字段一律在server层过滤
 	原理：
 		不使用ICP，不满足最左前缀的索引条件的比较是在Server层进行的，非索引条件的比较是在Server层进行的。
 		使用ICP，所有的索引条件的比较是在存储引擎层进行的，非索引条件的比较是在Server层进行的。
@@ -88,7 +88,19 @@
 	优点：
 		对比使用ICP和不使用ICP，可以看到使用ICP可以有效减少回表查询次数和返回给服务层的记录数，从而减少了磁盘IO次数和服务层与存储引擎的交互次数。
 		原来无法应用索引的条件，可以在引擎层进一步筛选，向server层返回更少的结果集。提高查询效率。
-	
+
+
+⚫mysql优化器做了哪些事情
+1、外链接转连接
+2、最有索引选择：索引条件放在前面，提前过滤更多数据，优化连接顺序
+3、多表连接优化
+4、条件过滤下推，决定哪些条件可以下推到存储引擎(ICP)，将HAVING条件下推为WHERE条件，正常来说HAVING和ORDER BY是在server层过滤，使用icp可能下推到引擎层
+5、ORDER BY还有HAVING是在引擎层过滤还是server层过滤：ORDER BY和HAVING正常是在server层过滤
+	当使用索引完全覆盖排序时，ORDER BY时在引擎层过滤，部分HAVING条件可下推为WHERE条件
+存储引擎：WHERE条件（部分通过ICP）、索引扫描/全表扫描
+Server层：JOIN操作、GROUP BY、HAVING、ORDER BY、LIMIT
+
+
 	
 ⚫索引优化建议
 1. 表记录很少不需创建索引 （索引是要有存储的开销）.
