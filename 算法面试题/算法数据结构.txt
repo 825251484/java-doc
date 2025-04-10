@@ -91,7 +91,4 @@ java中实现：java.util.Deque，具体：ArrayDeque、LinkedList
 利用堆进行排序，时间复杂度为O(n log n)
 
 
-算法题
-链表、数组的创建，增删改查，反转必须学会
 
-锁：打印abc各十次？
