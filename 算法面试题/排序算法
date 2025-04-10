@@ -4,3 +4,201 @@
 归并排序	   O(nlogn)	      O(nlogn)	      O(n)	        稳定	      稳定且高效，但需要额外空间。
 冒泡排序	   O(n²)	        O(n²)	          O(1)	        稳定	      简单但效率低，仅适用于小数据量。
 插入排序	   O(n²)	        O(n²)	          O(1)	        稳定	      对小规模或基本有序数据高效。
+
+
+堆排序为什么对缓存不友好？
+跳跃访问（父子节点），这些节点的内存地址不连续，且随着堆的调整，访问路径会跳跃式变化，每次将堆顶（数组首元素）与堆尾交换，然后重新调整堆顶，导致头部和尾部数据交替访问。这种“两头跳”的访问模式破坏了空间局部性，而像快速排序、归并排序的递归分治或顺序访问能更好地利用缓存。
+
+
+插入排序
+public class InsertionSort {
+    public static void insertionSort(int[] arr) {
+        int n = arr.length;
+        for (int i = 1; i < n; i++) {
+            int key = arr[i];  // 当前待插入元素
+            int j = i - 1;
+
+            // 将比key大的元素向后移动
+            while (j >= 0 && arr[j] > key) {
+                arr[j + 1] = arr[j];
+                j--;
+            }
+            arr[j + 1] = key;  // 插入到正确位置
+        }
+    }
+
+    public static void main(String[] args) {
+        int[] arr = {12, 11, 13, 5, 6};
+        insertionSort(arr);
+        System.out.println("插入排序结果: " + Arrays.toString(arr));
+    }
+}
+
+
+冒泡排序
+public class InsertionSort {
+    public static void insertionSort(int[] arr) {
+        int n = arr.length;
+        for (int i = 1; i < n; i++) {
+            int key = arr[i];  // 当前待插入元素
+            int j = i - 1;
+
+            // 将比key大的元素向后移动
+            while (j >= 0 && arr[j] > key) {
+                arr[j + 1] = arr[j];
+                j--;
+            }
+            arr[j + 1] = key;  // 插入到正确位置
+        }
+    }
+
+    public static void main(String[] args) {
+        int[] arr = {12, 11, 13, 5, 6};
+        insertionSort(arr);
+        System.out.println("插入排序结果: " + Arrays.toString(arr));
+    }
+}
+
+
+归并排序
+public class MergeSort {
+    public static void mergeSort(int[] arr, int left, int right) {
+        if (left < right) {
+            int mid = left + (right - left) / 2;
+
+            // 递归分治
+            mergeSort(arr, left, mid);
+            mergeSort(arr, mid + 1, right);
+
+            // 合并两个有序子数组
+            merge(arr, left, mid, right);
+        }
+    }
+
+    private static void merge(int[] arr, int left, int mid, int right) {
+        // 临时数组存放合并结果
+        int[] temp = new int[right - left + 1];
+        int i = left, j = mid + 1, k = 0;
+
+        // 比较两个子数组的元素
+        while (i <= mid && j <= right) {
+            if (arr[i] <= arr[j]) {
+                temp[k++] = arr[i++];
+            } else {
+                temp[k++] = arr[j++];
+            }
+        }
+
+        // 复制剩余元素
+        while (i <= mid) temp[k++] = arr[i++];
+        while (j <= right) temp[k++] = arr[j++];
+
+        // 将临时数组拷贝回原数组
+        System.arraycopy(temp, 0, arr, left, temp.length);
+    }
+
+    public static void main(String[] args) {
+        int[] arr = {12, 11, 13, 5, 6, 7};
+        mergeSort(arr, 0, arr.length - 1);
+        System.out.println("归并排序结果: " + Arrays.toString(arr));
+    }
+}
+
+
+快速排序
+public class QuickSort {
+    public static void quickSort(int[] arr, int low, int high) {
+        if (low < high) {
+            // 分区操作，返回基准点索引
+            int pivotIndex = partition(arr, low, high);
+
+            // 递归排序左子数组和右子数组
+            quickSort(arr, low, pivotIndex - 1);
+            quickSort(arr, pivotIndex + 1, high);
+        }
+    }
+
+    private static int partition(int[] arr, int low, int high) {
+        int pivot = arr[high];  // 选择最后一个元素作为基准
+        int i = low - 1;        // i是小于基准的边界
+
+        for (int j = low; j < high; j++) {
+            if (arr[j] < pivot) {
+                i++;
+                // 交换arr[i]和arr[j]
+                int temp = arr[i];
+                arr[i] = arr[j];
+                arr[j] = temp;
+            }
+        }
+
+        // 将基准放到正确位置
+        int temp = arr[i + 1];
+        arr[i + 1] = arr[high];
+        arr[high] = temp;
+
+        return i + 1;  // 返回基准索引
+    }
+
+    public static void main(String[] args) {
+        int[] arr = {10, 7, 8, 9, 1, 5};
+        quickSort(arr, 0, arr.length - 1);
+        System.out.println("快速排序结果: " + Arrays.toString(arr));
+    }
+}
+
+
+堆排序
+public class HeapSort {
+    public static void heapSort(int[] arr) {
+        int n = arr.length;
+
+        // 1. 构建最大堆（从最后一个非叶子节点开始调整）
+        for (int i = n / 2 - 1; i >= 0; i--) {
+            heapify(arr, n, i);
+        }
+
+        // 2. 逐个提取堆顶元素（最大值）并调整堆
+        for (int i = n - 1; i > 0; i--) {
+            // 交换堆顶和末尾元素
+            int temp = arr[0];
+            arr[0] = arr[i];
+            arr[i] = temp;
+
+            // 调整剩余堆
+            heapify(arr, i, 0);
+        }
+    }
+
+    // 堆化操作（下沉）
+    private static void heapify(int[] arr, int n, int i) {
+        int largest = i;    // 假设当前节点是最大值
+        int left = 2 * i + 1;
+        int right = 2 * i + 2;
+
+        // 比较左子节点
+        if (left < n && arr[left] > arr[largest]) {
+            largest = left;
+        }
+
+        // 比较右子节点
+        if (right < n && arr[right] > arr[largest]) {
+            largest = right;
+        }
+
+        // 如果最大值不是当前节点，交换并递归调整
+        if (largest != i) {
+            int temp = arr[i];
+            arr[i] = arr[largest];
+            arr[largest] = temp;
+
+            heapify(arr, n, largest);
+        }
+    }
+
+    public static void main(String[] args) {
+        int[] arr = {12, 11, 13, 5, 6, 7};
+        heapSort(arr);
+        System.out.println("堆排序结果: " + Arrays.toString(arr));
+    }
+}
