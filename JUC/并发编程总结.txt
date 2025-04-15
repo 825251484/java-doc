@@ -70,10 +70,10 @@ ArraryList是线程不安全的集合类，在并发编程时可能报错：Conc
 ⚫常见的阻塞队列有哪些？有什么特点？
 有界队列：
 	ArrayBlockingQueue 由数组结构构成的有界阻塞队列
-	LinkedBlockingQueue 由链表结构构成的有界（但默认值为Integer.MAX_VALUE）阻塞队列
+	LinkedBlockingQueue 由链表结构构成的有界（但默认值为Integer.MAX_VALUE）阻塞队列，当设置的队列大小的时候，队列达到这个大小，就会阻塞，这是跟无界队列的根本区别
 	SynchronousQueue 不存储元素的阻塞队列，即单个元素的队列
 无界队列：
-	PriorityBlockingQueue 支持优先级排序的无界阻塞队列
+	PriorityBlockingQueue 支持优先级排序的无界阻塞队列，自动扩容，当容量不足时，自动扩容，即使给PriorityBlockingQueue设置了大小，也是初始值，同样会自动扩容，但LinkedBlockingQueue设置大小时会阻塞。如果LinkedBlockingQueue不设置大小，也可以做无界队列，因为同样时自动扩容的
 	DelayQueue 使用优先级队列实现的延迟无界阻塞队列
 队列操作：
 方法类型	      抛出异常	   返回布尔	        阻塞	      超时
@@ -96,12 +96,23 @@ PriorityBlockingQueue是线程安全的，采用二叉最小堆实现，元素�
 6.如果替换没成功，自旋超过一定次数，就会升级位重量级锁，创建一个monitor对象。然后把MarkWord中的指针改成monitor对象的地址。同时monitor对象中有一个owner，存储的是，拥有当前锁的线程信息，然后把当前线程放入monitor对象中的等待池WaitSet
 7.把对象头中的锁标志改成10（如果由第三个线程来竞争锁，这个时候也会升级为重量级锁。即使自旋次数不多，也会升级）
 
+情况1
+线程a持有锁，线程b竞争：线程a从偏向锁-》重量级锁，线程b直接进入阻塞队列
+线程a持有锁，线程b竞争，在stw阶段，线程a释放锁，但还没有撤销：线程b从通过cas加锁，从偏向锁-》轻量级锁。
+
+偏向锁最适合：明确只会被单个线程访问的同步块
+轻量级锁最适合：线程交替执行、低竞争的场景
+重量级锁是最后选择：高并发竞争时的保底方案
+
 
 ⚫锁升级的相关问题
-1.锁只能升级，不能降级，偏向锁可以撤销成无锁状态
+1.锁降级：在Full GC的STW阶段，JVM会遍历所有线程栈和对象，发现重量级锁但当前没有竞争时，可能降级为轻量级锁，这种降级是为了减少后续操作的同步开销
+重量级锁 → 轻量级锁（Full GC 时，检测无竞争）
+轻量级锁 → 无锁（持有线程释放锁 + 无新竞争）
+
 2.升级为重量级锁条件2种：
-	当前只有一个等待线程b，则该线程将通过自旋进行等待。但是当自旋超过一定的次数时，轻量级锁便会升级为重量级锁；
-	当一个线程已持有锁，另一个线程在自旋，而此时又有第三个线程来访时，轻量级锁也会升级为重量级锁。
+	线程a持有锁，线程a执行完，释放锁，此时没有到stw，偏向锁依然在，线程b加锁，会从偏向锁，升级为轻量级锁，如果在线程b抢锁时，线程c来竞争会升级为重量级锁。满足任一条件1、自旋超过阈值（默认 10 次，可通过 -XX:PreBlockSpin 调整）。竞争线程数 > 1（例如第三个线程加入竞争）。
+	当一个线程已持有锁，另一个线程在自旋，持有锁的线程会从偏向锁直接升级到重量级锁
 3.synchronized底层就是通过monitor指令来实现同步的。monitor是底层用C语言实现的原子指令的对象
 4.自适应自旋锁：在同一锁上，根据你上一次获取锁的自选次数来自动增减自旋次数，更加智能一些
 
@@ -182,6 +193,20 @@ Lock.unlock()的底层实现逻辑：先判断持有锁的线程是不是当前�
 是否可中断：synchronized不可被中断，ReentrantLock可以使用tryLock(long time, TimeUnit unit)，Lock.lockInterruptibly()中断。Condition.await()也可以
 是否是公平：synchronized是不公平锁。ReentrantLock通过传入true、false选择是否公平锁
 绑定多个条件：synchronized只能随机唤醒，ReentrantLock可以通过Condition精确唤醒
+
+中断逻辑
+方法			中断响应时机	中断处理方式
+lock()			获取到锁之后	仅设置中断标志
+lockInterruptibly()	在等待过程中	立即抛出InterruptedException
+tryLock()		不响应中断	保持原有中断状态
+
+方法			立即响应中断	超时控制	抛出异常
+lock()			❌		❌	❌
+lockInterruptibly()	✅		❌	InterruptedException
+tryLock()		❌		❌	❌
+tryLock(long,TimeUnit)	✅		✅	InterruptedException
+
+
 
 
 ⚫为什么使用线程池，线程池的优点是什么？
@@ -264,7 +289,7 @@ notifyAll()：唤醒在此同步锁对象上等待的所有线程，只有当前
    wait必须搭配synchronize一起使用，而sleep不需要；
    进入wait状态的线程能够被notify和notifyAll线程唤醒，而sleep状态的线程不能被notify方法唤醒；
    wait通常有条件地执行，线程会一直处于wait状态，直到某个条件变为真，但是sleep仅仅让你的线程进入睡眠状态；
-   wait方法会释放对象锁，但sleep方法不会。yield()方法也不会释放锁。
+   wait方法会释放对象锁，join也会释放锁，但sleep方法不会。yield()方法也不会释放锁。
    在调用wait方法之后，线程会变为WATING状态，而调用sleep方法之后，线程会变为TIMED_WAITING状态。
 2.wait能不能在static方法中使用？为什么？
    因为wait方法是实例方法（非static方法），因此不能在static中使用
@@ -274,7 +299,7 @@ notifyAll()：唤醒在此同步锁对象上等待的所有线程，只有当前
 参考链接：https://www.cnblogs.com/xiaoxi/p/7581899.html
 
 
-⚫为什么wait和notify要在sync中？
+⚫为什么wait必须在synchronized中使用？
 wait是线程阻塞，notify是唤醒线程，两者必须成对出现。如果一个线程被wait阻塞了，那么就需要另一个线程notify唤醒，从而实现多个线程之间的通信。
 如果实现线程之间的通信。那么在多线程执行时，必然存在一个并行执行的情况，为了控制程序在什么时候等待和唤醒，就需要一个条件来控制线程的执行的顺序，也就说通过sync来控制
 谁获得了锁，那么谁就获得对共享变量的修改权。修改之后，在通知其他线程来修改。从而达到线程之间的通信
@@ -284,8 +309,8 @@ wait是线程阻塞，notify是唤醒线程，两者必须成对出现。如果�
 ⚫interrupted与isInterrupted区别
 两者都是获取当前线程的中断状态
 public static boolean interrupted() { 
-    return currentThread().isInterrupted(true); 
-} // 因为是静态方法，只能作用于当前线程，并且会清除线程中断标志
+    return currentThread().isInterrupted(true); 设置中断标记为true，当调用Thread.interrupted()时，会将中断标记改为false。
+} // 因为是静态方法，只能作用于当前线程，并且会清除线程中断标志。为什么会清除：将中断视为一次性事件，防止同一个中断被重复处理
 public boolean isInterrupted() { 
     return isInterrupted(false); 
 } // 可以指定某个线程，让其终止。但是不会清除中断标志。
