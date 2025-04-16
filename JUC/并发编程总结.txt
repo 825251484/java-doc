@@ -232,13 +232,48 @@ ThreadPoolExecutor：推荐使用
 4.核心线程数的计算：参考公式：CPU核数 /（1 - 阻塞系数 ） 阻塞系数在 0.8~0.9 之间
 
 
-⚫线程池复用原理：
-当第一次启用线程池时，执行excute方法，通过addWoker()方法，创建核心线程来执行任务，该方法中，传入Runnable（任务）参数new了一个Worker对象，该类实现了Runnable接口，继承了AQS(用于线程执行任务时加锁操作)，并且在Worker构造方法中创建了一个Thread对象，
-并且会调用t.start();启动线程，启动线程之后，该线程执行的任务就是Worker中的run()方法，public void run() { runWorker(this); }，runWorker是线程复用的核心：当核心线程数执行完任务后，该方法并没有结束，
-而是一个while循环，不断的调用getTask()方法，从阻塞队列中获取任务，然后调用run方法执行任务。getTask()方法：会通过一个死循环来从队列中获取任务，
-1.如果工作线程数大于核心线程数，则通过poll()从队列取任务，取完队列后，线程销毁
-2.如果工作线程数小于核心线程数，则通过take()从队列取任务，取完队列后，线程阻塞；（这2个方法的区别是：take()取任务时，如果队列中没有任务了会调用await()阻塞当前线程）
-如果队列中的任务为0，就会阻塞当前线程，这样线程就不会回收了。线程的唤醒是在执行execute方法时，当调用workQueue.offer()方法，将任务放入阻塞队列时，会调用Condition.signal()方法唤醒一个之前阻塞的线程。
+⚫线程池复用原理：excute方法
+public void execute(Runnable command) {
+    if (command == null) throw new NullPointerException();
+    int c = ctl.get();
+    
+    // 情况1：当前线程数 < corePoolSize，直接创建核心线程
+    if (workerCountOf(c) < corePoolSize) {
+        if (addWorker(command, true)) // core=true
+            return;
+        c = ctl.get(); // 创建失败后重试
+    }
+    
+    // 情况2：线程数 >= corePoolSize，尝试将任务放入队列
+    if (isRunning(c) && workQueue.offer(command)) {
+        // 入队成功后，双重检查线程池状态
+        int recheck = ctl.get();
+        if (!isRunning(recheck) && remove(command))
+            reject(command); // 线程池已关闭，触发拒绝策略
+        else if (workerCountOf(recheck) == 0)
+            addWorker(null, false); // 保证至少有一个线程处理队列任务
+    }
+    // 情况3：队列已满，尝试创建非核心线程
+    else if (!addWorker(command, false)) // core=false
+        reject(command); // 非核心线程也无法创建，触发拒绝策略
+}
+
+文字描述
+1、先判断线程数量是否超限，如果没超限，判断是创建核心线程还是非核心线程，还是将队列放入队列中（逻辑见上面代码），addWorker(command, false)第二个参数true代表核心线程
+2、线程创建之后，判断线程池状态，是否关闭，再次判断线程数是否超过最大数量
+3、创建Worker对象，该对象构造方法封装了Runnable和Thread对象，Runnable是任务，Thread是线程工厂创建的线程
+4、获取任务和线程，加锁lock()，将Worker对象放入HashSet<Worker> workers
+5、启动线程t.start()，执行workers中的任务。
+6、启动线程之后，该线程执行的任务就是Worker中的run()方法，public void run() { runWorker(this); }
+7、执行runWorker(this)是线程复用的核心,该方法创建了一个while循环。
+8、在while循环中，会不断从阻塞队列中获取任务（第一步放入队列中），调用getTask()方法，从阻塞队列中获取任务，然后调用run方法执行任务。
+	getTask()逻辑：
+	1.当 workerCount > corePoolSize 或 allowCoreThreadTimeOut=true 时，代表这个线程是非核心线程，线程使用poll(keepAliveTime, TimeUnit)，超时未获取任务则返回 null，线程终止。allowCoreThreadTimeOut代表是否启动非核心线程超时机制，
+	源码： boolean timed = allowCoreThreadTimeOut || wc > corePoolSize;   //wc是当前线程数，corePoolSize核心线程数   if ((wc > maximumPoolSize || (timed && timedOut)) return null;
+	2.当 workerCount <= corePoolSize 且 allowCoreThreadTimeOut=false 时，代表这个线程是核心线程，线程使用take() 队列为空时永久阻塞，线程不会超时销毁。（这2个方法的区别是：take()取任务时，如果队列中没有任务了会调用await()阻塞当前线程）
+	注意：ThreadPoolExecutor 的 allowCoreThreadTimeOut(boolean value) 方法动态修改，默认值false：executor.allowCoreThreadTimeOut(false); // 禁止核心线程超时回收（默认值）
+线程等待：如果队列中的任务为0，就会阻塞当前线程，线程处于WAITING状态，不消耗CPU资源。（通过 LockSupport.park() 或 Condition.await() 实现）
+线程唤醒：线程的唤醒是在执行execute方法时，当调用workQueue.offer()方法，将任务放入阻塞队列，然后会调用Condition.signal()方法唤醒一个之前的一个阻塞线程。
 链接：https://www.nowcoder.com/discuss/353159131865489408
 
 
