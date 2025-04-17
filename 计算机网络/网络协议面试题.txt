@@ -23,6 +23,9 @@ http是一种基于应用层的一种超文本传输协议。用于服务之间�
 响应头和响应体同上
 
 
+⚫什么是Socket？
+
+
 ⚫OSI七层协议和五层协议？
 7层是指OSI七层协议模型，主要是：应用层（Application）、表示层（Presentation）、会话层（Session）、传输层（Transport）、网络层（Network）、数据链路层（Data Link）、物理层（Physical）。
 五层协议是在七层协议的基础上把：应用层（Application）、表示层（Presentation）、会话层（Session）合并，统称为应用层
@@ -103,9 +106,36 @@ restful是一种软件架构风格，满足REST约束条件和原则的架构，
 
 
 ⚫HttpURLConnection、HttpClient、OKHttp区别
-　HttpURLConnection是JDK自带的HTTP客户端技术，并不支持连接池，如果要实现连接池的机制，还需要自己来管理连接对象。对于网络请求这种底层相对复杂的操作，如果有可用的其他方案，也没有必要自己去管理连接对象。
-　Apache提供的HttpClient框架相比传统JDK自带的HttpURLConnection，它封装了访问http的请求头，参数，内容体，响应等等；它不仅使客户端发送HTTP请求变得容易，而且也方便了开发人员测试接口（基于Http协议的），即提高了开发的效率，也方便提高代码的健壮性；另外高并发大量的请求网络的时候，还是用“HTTP连接池”提升吞吐量。
-　OKHttp是一个处理网络请求的开源项目,是安卓端最火热的轻量级框架,由移动支付Square公司贡献用于替代HttpUrlConnection和Apache HttpClient。OKHttp拥有共享Socket,减少对服务器的请求次数，通过连接池,减少了请求延迟等技术特点。
+1、HttpURLConnection是JDK自带的HTTP客户端技术，并不支持连接池，如果要实现连接池的机制，还需要自己来管理连接对象。对于网络请求这种底层相对复杂的操作，如果有可用的其他方案，也没有必要自己去管理连接对象。功能基础，需手动处理输入输出流。
+2、Apache提供的HttpClient框架相比传统JDK自带的HttpURLConnection，它封装了访问http的请求头，参数，内容体，响应等等；它不仅使客户端发送HTTP请求变得容易，而且也方便了开发人员测试接口（基于Http协议的），即提高了开发的效率，也方便提高代码的健壮性；另外高并发大量的请求网络的时候，还是用“HTTP连接池”提升吞吐量。功能强大，但较重量级。
+3、HttpClient：Java 11 引入了新的 HttpClient，支持 HTTP/2 和异步请求
+4、OKHttp是一个处理网络请求的开源项目，是安卓端最火热的轻量级框架,由移动支付Square公司贡献用于替代HttpUrlConnection和Apache HttpClient。OKHttp拥有共享Socket,减少对服务器的请求次数，通过连接池,减少了请求延迟等技术特点。支持HTTP/2，默认高效，Android开发首选
+复杂需求（如重试、连接池）：选择 Apache HttpClient 或 OkHttp。
+
+⚫Socket和WebSocket区别
+1、Socket
+	定义：Socket 是操作系统提供的 底层网络通信接口，基于 TCP/IP 或 UDP 协议。
+	作用：用于两台机器之间的 原始数据通信（字节流或数据报）。
+	特点：
+		不限定协议（可以是 HTTP、FTP、自定义协议等）。
+		需要手动处理连接、数据分包、粘包等问题。
+2、WebSocket
+	定义：WebSocket 是 基于 HTTP 升级的应用层协议（RFC 6455），提供全双工通信。
+	作用：用于浏览器和服务器之间的 实时双向通信（如聊天室、股票行情）。
+	特点：
+	建立在 TCP 之上，依赖 HTTP 握手（Upgrade: websocket）。
+	自动处理数据帧（Frame），无需手动分包。
+
+3、关系对比
+特性	Socket			WebSocket
+层级	传输层（TCP/UDP）		应用层（基于 HTTP 升级）
+协议	无固定协议		固定协议（ws:// 或 wss://）
+通信方式	单向或双向（需自己实现）	全双工（天生支持双向通信）
+复杂度	高（需处理底层细节）	低（自动管理连接、帧格式）
+典型用途	自定义协议、网络工具	网页实时通信（如聊天、游戏）
+总结：
+WebSocket 是 基于 Socket 实现的高级协议，专为 Web 实时通信设计，而 Socket 是更通用的底层工具。
+
 
 
 ⚫rpc调用层，tcp/ip如何找到目标ip
