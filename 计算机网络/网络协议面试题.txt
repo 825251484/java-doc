@@ -112,6 +112,11 @@ restful是一种软件架构风格，满足REST约束条件和原则的架构，
 4、OKHttp是一个处理网络请求的开源项目，是安卓端最火热的轻量级框架,由移动支付Square公司贡献用于替代HttpUrlConnection和Apache HttpClient。OKHttp拥有共享Socket,减少对服务器的请求次数，通过连接池,减少了请求延迟等技术特点。支持HTTP/2，默认高效，Android开发首选
 复杂需求（如重试、连接池）：选择 Apache HttpClient 或 OkHttp。
 
+推荐
+Android/高并发服务：OkHttp（性能最优，功能齐全）。
+传统 Java 项目：Apache HttpClient（功能全面，稳定）。
+JDK 11+ 新项目：HttpClient（未来趋势，但功能较基础）。
+
 ⚫Socket和WebSocket区别
 1、Socket
 	定义：Socket 是操作系统提供的 底层网络通信接口，基于 TCP/IP 或 UDP 协议。
