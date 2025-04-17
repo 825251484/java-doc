@@ -1,8 +1,7 @@
-﻿kafka高吞吐的实现：
+kafka高吞吐的实现：
 1、顺序读写：
 kafka的特点就是高性能，高吞吐，低延迟，吞吐量能达到几十万甚至几百万（增加分区，添加机器）
-顺序读写：Kafka将消息写⼊到了分区partition中，⽽分区中消息是顺序读写的。磁盘顺序读写性
-能要远⾼于内存的随机读写。
+顺序读写：Kafka将消息写⼊到了分区partition中，⽽分区中消息是顺序读写的。磁盘顺序读写性能要远⾼于内存的随机读写。
 2、零拷贝：零拷⻉并不是不需要拷⻉，⽽是减少不必要的拷⻉次数。通常是说在IO读写过程中。Kafka利⽤linux操作系统的 "零拷⻉（zero-copy）" 机制在消费端做的优化。
 	read：DMA付责将磁盘上的数据拷贝到内核空间。然后cpu付责将数据从内核空间拷贝到用户空间，用户才可以读取到数据
 	write：用户写入数据在用户空间。cpu付责将用户空间的数据拷贝到内核空间，然后DMA付责将内核空间的数据拷贝到网卡中。
@@ -22,6 +21,33 @@ kafka利用操作系统的内存，而非jvm内存，避免了内存溢出和GC�
 就是使⽤了磁盘顺序读写来提升的性能。Kafka的message是不断追加到本地磁盘⽂件末尾的，⽽不
 是随机的写⼊，这使得Kafka写⼊吞吐量得到了显著提升
 
+
+⚫mmap（内存映射文件） 和 sendfile 零拷贝区别
+1、mmap（内存映射文件）——用于磁盘文件读写
+Kafka 使用 mmap 技术将 磁盘上的日志文件（log segments）映射到内存（Page Cache），使得写入和读取操作可以直接操作内存，而不需要显式调用 read()/write() 系统调用。
+写入流程：Broker 写入消息（Producer → Broker），Producer 发送的消息先被追加到内存映射区域（Page Cache）。操作系统异步刷盘（fsync 由 log.flush.interval.messages 和 log.flush.interval.ms 控制）。
+读取流程：消费者读取时，Broker 可以直接从 Page Cache 读取数据（如果数据仍在缓存中），避免磁盘 I/O。
+
+2、sendfile 零拷贝——用于网络传输
+Broker 发送消息给 Consumer（Broker → Consumer）当消费者拉取消息时，Broker 需要从磁盘（或 Page Cache）读取数据并发送到网络。
+传统方式：共 2 次拷贝 + 2 次上下文切换。
+read(file, user_buf)：数据从磁盘 → 内核缓冲区 → 用户缓冲区（拷贝 1）。
+write(socket, user_buf)：数据从用户缓冲区 → Socket 缓冲区（拷贝 2）。
+sendfile 优化：sendfile(file, socket)：数据直接从 Page Cache → 网卡缓冲区（DMA 传输），无需经过用户态。仅 1 次 DMA 拷贝 + 0 次用户态参与。
+
+
+⚫Kafka 如何结合 mmap 和 sendfile？
+写入阶段（Producer → Broker）：使用 mmap 将消息追加到日志文件（顺序写入 Page Cache）。依赖 OS 异步刷盘（除非 acks=all 需要同步刷盘）。
+读取阶段（Broker → Consumer）如果数据在 Page Cache，直接使用 sendfile 发送到网络（零拷贝）。如果数据不在缓存，先 mmap 加载到 Page Cache，再用 sendfile 发送。
+sendfile 仅适用于 从文件到 Socket 的传输，而 mmap 用于 文件读写，两者互补而非替代
+数据流向是 网络 → Broker → 磁盘，而 sendfile 仅支持 文件 → 网络。
+⚫总结
+mmap：优化 Kafka 磁盘存储，让 Broker 高效读写日志文件（顺序 I/O + Page Cache）。
+sendfile：优化 Kafka 网络传输，让 Broker 向 Consumer 发送数据时避免用户态拷贝（Zero-Copy）。
+两者结合：mmap 让数据快速进入 Page Cache，sendfile 让数据直接从 Page Cache 发到网络，共同实现 Kafka 的高吞吐、低延迟。
+如果你的问题是面试题，可以回答："Kafka 在存储层使用 mmap 加速磁盘文件读写，在网络层使用 sendfile 实现零拷贝传输，两者共同保障高吞吐。"
+
+
 ⚫kafka零拷贝原理
 原始拷贝流程：
 	消费者发起请求，到kafka borker端，然后用户空间向cpu发起IO请求，发起read()系统调用，读取硬盘上的数据，这时上下文就会从用户态切换到内核态，read操作时阻塞操作，直到有数据返回，
@@ -39,18 +65,19 @@ kafka零拷贝：
 		共经历：dma拷贝，cpu地址拷贝（只拷贝地址速度很快），dma gather拷贝，2次内核用户态切换.
 		用到技术：mmap内存映射，dma gather拷贝，顺序读，pagecache读，多种技术结合
 
-	sendfile + dma gather拷贝
+	sendfile + dma gather拷贝（kafka最终使用的底层函数）
 		和上一个比，改动点：
 		【1】把mmap调用改成sendfile调用，
 		【2】cpu地址拷贝改成了用非cpu的拷贝，那么就省去了cpu的开销，进一步提高性能，这里主要时linus内核的改进，省去了cpu拷贝
 		共经历：dma拷贝，dma gather拷贝，2次内核用户态切换.
 		用到技术：sendfile，dma gather拷贝，顺序读，pagecache读，多种技术结合
 
-	splice + dma gather拷贝
+	splice + dma gather拷贝（kafka所有版本均未使用该函数）
 		【1】把sendfile调用改成splice调用，
 		【2】splice函数在pagecache和socket缓存区中间建立一个环形读写管道，写端绑定在pagecache，读端绑定到socket。数据从管道被读到socket中，然后将数据通过普通dma拷贝到网卡。
 
 链接：https://www.bilibili.com/video/BV1iX4y1S76o/?spm_id_from=333.788&vd_source=80c3ca1a77e037f4d86501ba97d54dbb
+
 
 ⚫kafka消费消息
 kafka底层时按照分区存储数据的，每个分区下以文件大小存储消息，包含index索引和log消息文件，文件名用offset来命名，从0开始，如果文件写满了，生成第二个文件以上一个文件最大的offset+1来命名。
@@ -155,11 +182,24 @@ log.flush.interval.messages=10000 在持久化到磁盘前message最大接收条
 log.flush.interval.ms=1000 任何主题中的消息在刷新到磁盘之前保留在内存中的最长时间（毫秒）。如果未设置，则使用 log.flush.scheduler.interval.ms 中的值
 log.flush.scheduler.interval.ms 日志刷新程序检查是否需要将任何日志刷新到磁盘的频率（以毫秒为单位）
 
+
+⚫如何保证数据不会丢失？
+即使 acks=all，若 Broker未配置刷盘（flush），数据仍可能丢失（因为ISR副本可能也仅写入 Page Cache）。
+完整可靠性需要 acks=all + min.insync.replicas=N（N≥2） + 同步刷盘（不推荐，性能差）。
+min.insync.replicas：代表Kafka ISR 列表中最小同步副本数
+
+
+⚫为什么 Kafka 默认不强制刷盘？
+Kafka 认为分布式副本（Replication）是更高效的可靠性保障方式，而非依赖单机刷盘。
+同步刷盘会使 Kafka 的吞吐量下降 1~2 个数量级。
+Broker 崩溃的概率远低于网络或生产者故障，多副本机制已能覆盖大多数场景。
+
 ⚫kafka官网文档：https://kafka.apache.org/documentation.html#configuration
 https://www.bilibili.com/video/BV1Ss4y1h7ea/?spm_id_from=333.788&vd_source=80c3ca1a77e037f4d86501ba97d54dbb
 
 ⚫如何尽量防止数据丢失呢？
 将min.insync.replicas=2设置多副本，并设置log.dirs='多目录'：为了使每个目录对应一个独立的硬盘，防止硬盘坏了导致所有数据丢失
+
 
 ⚫kafka消息顺序及幂等性问题
 Kafka本身支持 At least once消息送达语义，因此实现消息发送的幂等关键是要实现 Broker端消息的去重。为了实现消息发送的幂等性，Kafka引入了两个新的概念：
