@@ -2,11 +2,11 @@ kafka高吞吐的实现：
 1、顺序读写：
 kafka的特点就是高性能，高吞吐，低延迟，吞吐量能达到几十万甚至几百万（增加分区，添加机器）
 顺序读写：Kafka将消息写⼊到了分区partition中，⽽分区中消息是顺序读写的。磁盘顺序读写性能要远⾼于内存的随机读写。
-2、零拷贝：零拷⻉并不是不需要拷⻉，⽽是减少不必要的拷⻉次数。通常是说在IO读写过程中。Kafka利⽤linux操作系统的 "零拷⻉（zero-copy）" 机制在消费端做的优化。
+2、零拷贝：零拷⻉并不是不需要拷⻉，⽽是减少不必要的cpu拷⻉次数。通常是说在IO读写过程中。Kafka利⽤linux操作系统的 "零拷⻉（zero-copy）" 机制在消费端做的优化。
 	read：DMA付责将磁盘上的数据拷贝到内核空间。然后cpu付责将数据从内核空间拷贝到用户空间，用户才可以读取到数据
-	write：用户写入数据在用户空间。cpu付责将用户空间的数据拷贝到内核空间，然后DMA付责将内核空间的数据拷贝到网卡中。
-	因为CPU在内核和用户空间的上下文切换，以及数据拷贝，大大的降低了程序的执行性能。
-	所以诞生了零拷贝技术：mmap。通过设置一块内存共享区域。通过内存映射文件的机制。减少一次cpu拷贝。大大提高了性能
+	write：read读取的数据在用户空间。cpu付责将用户空间的数据拷贝到内核空间的socket缓冲区，然后DMA付责将socket缓冲区的数据拷贝到网卡中。
+	因为CPU在内核和用户空间的上下文切换，以及cpu拷贝，大大的降低了程序的执行性能。
+	所以诞生了零拷贝技术（消费者）：sendfile + mmap。通过内存映射技术mmap，将磁盘数据映射到内核缓冲区的page cache，再使用sendfile函数通过dma将page cache中数据拷贝到网卡。
 3、批量发送：Kafka允许使⽤批量消息发送模式
 4、消息压缩：Kafka⽀持对消息集合进⾏压缩
 5、Page Cache
@@ -24,21 +24,23 @@ kafka利用操作系统的内存，而非jvm内存，避免了内存溢出和GC�
 
 ⚫mmap（内存映射文件） 和 sendfile 零拷贝区别
 1、mmap（内存映射文件）——用于磁盘文件读写
-Kafka 使用 mmap 技术将 磁盘上的日志文件（log segments）映射到内存（Page Cache），使得写入和读取操作可以直接操作内存，而不需要显式调用 read()/write() 系统调用。
+定义：Kafka 使用 mmap 技术将 磁盘上的日志文件（log segments）映射到内存（Page Cache），用户可以直接访问Page Cache中数据，不需要用户态切换到内核态，也不需要cpu拷贝，用户态程序直接读写Page Cache，无需调用read()/write()，因此避免了用户缓冲区的 CPU 拷贝。也避免用户态和内核态之间的数据拷贝。（避免cpu拷贝，不能避免dma拷贝，cpu资源比较宝贵，还避免用户态和内核态切换）
 写入流程：Broker 写入消息（Producer → Broker），Producer 发送的消息先被追加到内存映射区域（Page Cache）。操作系统异步刷盘（fsync 由 log.flush.interval.messages 和 log.flush.interval.ms 控制）。
-读取流程：消费者读取时，Broker 可以直接从 Page Cache 读取数据（如果数据仍在缓存中），避免磁盘 I/O。
+读取流程：消费者读取时，Broker 可以直接从Page Cache读取数据（如果数据仍在缓存中），避免磁盘 I/O。如果Page Cache没有数据，需要一次dma拷贝，将磁盘数据拷贝到page cache
+
+
 
 2、sendfile 零拷贝——用于网络传输
-Broker 发送消息给 Consumer（Broker → Consumer）当消费者拉取消息时，Broker 需要从磁盘（或 Page Cache）读取数据并发送到网络。
-传统方式：共 2 次拷贝 + 2 次上下文切换。
-read(file, user_buf)：数据从磁盘 → 内核缓冲区 → 用户缓冲区（拷贝 1）。
-write(socket, user_buf)：数据从用户缓冲区 → Socket 缓冲区（拷贝 2）。
+Broker 发送消息给Consumer（Broker → Consumer）当消费者拉取消息时，Broker需要从磁盘（或Page Cache）读取数据并发送到网络。
+传统方式：共 2次dma拷贝 + cpu拷贝 + 2 次上下文切换。
+read(file, user_buf)：数据从磁盘 → dma → 内核缓冲区 → cpu → 用户缓冲区（拷贝 1）。
+write(socket, user_buf)：数据从用户缓冲区 → cpu → Socket缓冲区 → dma → 网卡（拷贝 2）。
 sendfile 优化：sendfile(file, socket)：数据直接从 Page Cache → 网卡缓冲区（DMA 传输），无需经过用户态。仅 1 次 DMA 拷贝 + 0 次用户态参与。
 
 
 ⚫Kafka 如何结合 mmap 和 sendfile？
 写入阶段（Producer → Broker）：使用 mmap 将消息追加到日志文件（顺序写入 Page Cache）。依赖 OS 异步刷盘（除非 acks=all 需要同步刷盘）。
-读取阶段（Broker → Consumer）如果数据在 Page Cache，直接使用 sendfile 发送到网络（零拷贝）。如果数据不在缓存，先 mmap 加载到 Page Cache，再用 sendfile 发送。
+读取阶段（Broker → Consumer）如果数据在 Page Cache，直接使用 sendfile 发送到网络（零拷贝）。如果数据不在缓存，先mmap加载到Page Cache，再用sendfile发送。
 sendfile 仅适用于 从文件到 Socket 的传输，而 mmap 用于 文件读写，两者互补而非替代
 数据流向是 网络 → Broker → 磁盘，而 sendfile 仅支持 文件 → 网络。
 ⚫总结
