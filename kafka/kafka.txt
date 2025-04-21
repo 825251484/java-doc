@@ -36,7 +36,7 @@ kafka中在消费者读取索引时用到了mmap。消费者访问索引以后�
 kafka写入使用的是FileChannel.write() + PageCache 更高效
 Broker 启动加载索引也使用了mmap
 为什么这样设计？
-1、进程内的虚拟内存地址空间有限不适合大文件的映射，所以适合索引文件，频繁读取且文件小。mmap映射的虚拟内存空间的大小，是和文件的大小一致的。也就是说文件10g，虚拟内存同样开辟一个10g的空间，即使实际只用了一小部分，但是同样会占用很多内存
+1、进程内的虚拟内存地址空间有限不适合大文件的映射，所以适合索引文件，频繁读取且文件小。mmap映射的虚拟内存空间的大小，是和文件的大小一致的。也就是说文件10g，虚拟内存同样开辟一个10g的空间，即使实际只用了一小部分，但是同样会占用很多内存，尤其在 32 位系统易崩溃
 2、严格顺序追加：Kafka 的日志写入是纯追加（Append-Only），FileChannel.write() 配合 PageCache 已能极致优化：顺序 I/O 的磁盘吞吐量可达 500MB/s 以上（HDD）或 几 GB/s（SSD/NVMe）。mmap 的随机写入优势在此场景无意义。
 
 
@@ -101,12 +101,33 @@ kafka拷贝：
 写入流程：新消息追加到当前活跃段（Active Segment），写满后滚动生成新段。写入操作是顺序 I/O，性能极高。
 
 
-⚫kafka消费消息
+⚫kafka如何消费消息
 1、偏移量定位：确定目标 Offset 属于哪个 Segment（通过 .log 文件名定位）
 2、根据目标消息的offset，通过二分查找对应段的索引文件，目标offset和index文件的名称做比较，判断在哪个索引文件，从索引文件中找到小于等于且最接近目标索引的索引，索引对应一个物理地址
 3、物理位置 指的是 字节偏移量（Byte Offset），表示目标消息在 .log 文件中的起始位置（从文件开头计算的字节数）。
 4、通过物理地址可以快速跳到对应的log文件，从该物理地址按顺序开始搜索，直到找到目标消息，通过零拷贝发给消费者
 如果定位在00000000000001234000.index索引文件，那么消息肯定也在相同命名的log文件：00000000000001234000.log。所以通过文件的其实偏移量+物理地址，快速跳到log文件
+
+
+⚫kafka的offset如何管理
+定义：将 offset 存储在 Kafka 内部主题 __consumer_offsets 中，由 Broker 自动管理。50个分区会均匀的分配到多台broker集群中
+内部主题：__consumer_offsets 是一个紧凑的（compact）Kafka 主题，默认有 50 个分区，存储所有消费者组的 offset 信息。可通过 offsets.topic.num.partitions 调整
+自动提交：消费者默认每隔 auto.commit.interval.ms（默认 5 秒）自动提交一次 offset（需启用 enable.auto.commit=true）。
+手动提交：可通过 consumer.commitSync() 或 consumer.commitAsync() 手动提交，确保消息处理完成后再提交 offset，避免丢失或重复消费。
+当消费者提交 offset 时：
+1、Kafka 根据 group.id 的哈希值 计算目标分区：targetPartition = hash(group.id) % 50  // 确定写入哪个分区（0~49）
+2、写入请求发送到该分区的 Leader Broker。
+3、Leader 将数据同步到所有 Follower，确保副本一致性（acks=all）。
+读取 Offset（消费者视角）
+1、消费者启动时：同样根据 group.id 哈希计算目标分区。
+2、从该分区的 Leader Broker 读取 offset。
+
+
+⚫__consumer_offsets结构
+Key：由 group.id、主题名（topic）、分区号（partition）组成，唯一标识一个消费者组的消费进度。
+Value：存储对应的 offset 值（以及元数据如提交时间戳）。
+清理策略：该主题是 compact（压缩） 的，Kafka 会定期清理旧版本数据，仅保留每个 Key 的最新 Value。
+例如：[group-1, test-topic, 0]  // 表示消费者组 group-1 对 test-topic 分区 0 的 offset
 
 
 ⚫预读机制
@@ -129,10 +150,9 @@ Kafka 不直接控制预读，而是依赖操作系统的 PageCache 机制。顺
 存储
 1.数据的写入利用了操作系统提供的pageCache，属于堆外内存，降低java应用内存的管理压力，从而减少了gc带来的stop the word问题，基于内存操作，且采取顺序写入方式，效率极快。
 2.底层对于数据存储，分为了数据，索引，关系映射三种类型文件，采用顺序分段存储，稀疏索引的方式式。提高数据查找的效率。
-3.底层通过mmap内存映射技术，无需cpu拷贝和内核态切换，用户态程序直接访问pagecache。将数据快速写入pagecache内存，然后操作系统异步刷盘
+3.读取索引文件，底层通过mmap内存映射技术代替Filechannel.read()，无需cpu拷贝和内核态切换，用户态程序直接访问pagecache。将数据快速写入pagecache内存，然后操作系统异步刷盘
 访问
-3.mmap+sendfile  对于磁盘数据的读取，利用DMA（直接内存访问）的系统调用sendfile，由传统的 磁盘-内核缓冲-应用缓存-socket缓冲-网卡 文件copy方式，改进为 磁盘-内核缓冲-socket缓冲-网卡，减少了 用户/内核态的转换次数和 文件copy次数。
-4.dma+mmap ，利用DMA提供的mmap函数调用，允许内核态缓冲区直接引用文件句柄，与用户态缓冲区内存共享，从而实现像访问内存那样直接访问文件。减少文件copy次数和态转换。
+3.mmap+sendfile  对于磁盘数据的读取，利用DMA（直接内存访问）的系统调用sendfile，由传统的 磁盘-内核缓冲-应用缓存-socket缓冲-网卡 文件copy方式，改进为 磁盘->pagecache->网卡，减少了 用户/内核态的转换次数和 文件copy次数。
 
 
 ⚫kafka消费分区策略
@@ -145,20 +165,23 @@ Group Coordinator渐进式的rebalance
 当有第三个消费者C3加入时，Group Coordinator会收到join Group通知，然后Group Coordinator会通知C1 C2进行rebalance，这两个消费者将自己持有的分区发送给Group Coordinator，
 Group Coordinator经过计算，得出应该把P2分给C3，在整个rebalance这期间第一阶段就是所有分区正常消费，第二个阶段P2停止消费，第二阶段结束P2正常消费
 
+
 ⚫kafka生产者分区策略（发送消息出现延迟，如何调整）
 生产者默认分区策略：RoundRobin
-RoundRobin：先将消息缓存到RecordAccumulator内部batches中内存16k大小的ByteBuffer中，如果不设置key，消息将以轮询的方式发送不同的分区的batches中,每个batches填不满
-Sticky：kafka2.4之后增加的粘性分区策略，将每个batches中16k大小填满在轮询到下一个分区
+RoundRobin：先将消息缓存到RecordAccumulator内部batches中内存16k大小的ByteBuffer中，如果不设置key，消息将以轮询的方式发送不同的分区的batches中，每个batches填不满，（以消息纬度轮训，单条消息，比如6条消息，需要轮训6次，每次发送消息时，强制 切换到下一个分区）
+Sticky：kafka2.4之后增加的粘性分区策略，只有批次填满或等待超时（linger.ms）才会切换到下一个分区，尽量让一个批次的所有消息进入同一个分区，减少网络请求和分区切换。（以batch.size纬度轮训，比如6条消息，3条消息填满一个batch.size或者超时才会切换分区，那就需要轮训2次）
 区别：rr和sticky分区策略在数据延时上主要是因为在rr策略下，一个batch不能填满，导致相同一批数据rr策略会产生更多的batch，导致后续flush()的时候开销更大引起的
 如果在发送消息特别快，然后分区数又很少（10个以内），linger.ms>100，消息的key非空，两者分区策略差异不是很大
-
+Kafka ≤ 2.3：默认使用 RoundRobin（严格轮询）。
+Kafka ≥ 2.4：默认使用 Sticky（优化吞吐量）。
 参考链接；https://www.bilibili.com/video/BV1M8411G7Td/?spm_id_from=333.788&vd_source=80c3ca1a77e037f4d86501ba97d54dbb
 
-⚫kafka的RecordAccumulator
+
+⚫kafka生产者端RecordAccumulator
 	RecordAccumulator内部结构
 	    private final ConcurrentMap<TopicPartition, Deque<ProducerBatch>> batches;
 	    private final BufferPool free;
- 当生产者发送消息时，会把消息放在一个暂存区域batches中，batches中key为topic和partition，value就是存储ProducerBatch的队列，这里时批量发消息的关键。也是kafka高性能的原因之一。
+ 当生产者发送消息时，会把消息放在一个暂存区域batches中，batches中key为topic和partition，value就是存储ProducerBatch的队列，这里是批量发消息的关键。也是kafka高性能的原因之一。
  kafka会把多条消息都放在ProducerBatch中，打包一起发送，当ProducerBatch写满的时候，就会唤醒sender子线程，然后把数据发送到leader所在的broker中的pagecache上，如果设置了多副本机制
  那么从节点follower就会从leader中拉取消息。当所有节点拉完消息，（acks=10，retries=10），这个时候会向生产者反馈一个ack应答，告诉生产者已经写入成功。但是消息此时在pagecache中，
  没有写入到硬盘上。如果此时机器挂了，那么这些数据就会丢失，
@@ -174,6 +197,7 @@ Sticky：kafka2.4之后增加的粘性分区策略，将每个batches中16k大�
  replication.factor=3，用来设置主题的副本数。每个主题可以有多个副本，副本位于集群中不同的broker上，也就是说副本的数量不能超过broker的数量，否则创建主题时会失败。
  链接：https://www.bilibili.com/video/BV1Ss4y1h7ea/?spm_id_from=333.788&vd_source=80c3ca1a77e037f4d86501ba97d54dbb
 
+
 ⚫kafka内存池化技术
 Kafka通过使用内存缓冲池，让整个消息发送的过程中，内存空间可以循环利用，有效的降低了JVM GC的触发次数，从而提高了消息发送的速度，提升了吞吐量。
 	RecordAccumulator内部结构
@@ -187,6 +211,7 @@ Kafka通过使用内存缓冲池，让整个消息发送的过程中，内存空
 	因为对于磁化的空间中的内存是可以循环重复使用的，这块内存的使用和释放不需要等待GC来回收的，（就像线程池中的线程一样，一个道理，重复使用），
 	没有GC的操作那么就不会发送STW，这也是kafka高性能，高吞吐的原因之一
 ⚫生产者阻塞（发送缓慢）原因：
+	如果我当前发送的消息大小是20k，那么这是一个完整的消息，无法拆分，那么就需要申请池外空间20k大小来存储。也就是先判断16k池化空间够用，不够就申请池外空间，并且一个完整消息是不可拆分的
 	非磁化内存使用的是堆内存，需要GC来处理释放内存，因此就比较消耗时间，发送消息就会比较缓慢，所以在生产中，我要尽量控制消息的大小，从而控制频繁的GC导致kafka的性能下降，（如果消息太大可以调整batch.size=16384）。
 	解决：
 	1.提高RecordAccumulator:buffer.memory设置合理范围值，池化空间，压测来决定 。 
@@ -200,7 +225,7 @@ buffer.memory（默认32MB），这个参数代表的是RecordAccumulator所能�
 batch.size=16384设置ByteBuffer大小，一旦消息的大小达到这个值，就将消息发送给borker，
 linger.ms默认0发送消息的延时时间，当达到这个时间，消息就会被发送到broker端，
 compression.type消息压缩，减少占用的带宽（如果消费能力本身就不足，一般不建议压缩了，消息能力不足会消息积压，所以减少批量）
-max.in.flight.requests.per.connection=5 指定了生产者在接收到服务器相应之前可以发送多个消息，值越高，占用的内存越大，当然也可以提升吞吐量，发生错误时，可能会造成数据的发送顺序改变，其默认值是5.
+max.in.flight.requests.per.connection=5 指定了生产者在接收到服务器响应之前可以发送多个消息，值越高，占用的内存越大，当然也可以提升吞吐量，发生错误时，可能会造成数据的发送顺序改变，其默认值是5.
 并且建议max.in.flight.requests.per.connection 的值小于 5。如何保证顺序，下面详解
 
 ⚫kafka会不会丢数据
@@ -233,11 +258,36 @@ https://www.bilibili.com/video/BV1Ss4y1h7ea/?spm_id_from=333.788&vd_source=80c3c
 
 
 ⚫kafka消息顺序及幂等性问题
-Kafka本身支持 At least once消息送达语义，因此实现消息发送的幂等关键是要实现 Broker端消息的去重。为了实现消息发送的幂等性，Kafka引入了两个新的概念：
-【1】PID：每个新的 Producer在初始化的时候会被分配一个唯一的PID，这个 PID对用户是不可见的；
-【2】Sequence Numbler：对于每个PID，该 Producer发送数据的每个<Topic, Partition>都对应一个从0开始单调递增的Sequence Number；
-Broker端在内存中保存了这 Sequence Numbler，对于接收的每条消息，如果其序列号的值（SN_new）比 Broker端中维护的对应的序列号的值（SN_old）大1（即SN_new = SN_old + 1）时，Broker才会接收它，否则将其丢弃。这样就可以实现了消息重复提交了。但是，只能保证单个 Producer对于同一个 <Topic, Partition>的 Exactly Once语义。不能保证同一个Producer一个 Topic不同的 Partion幂等。
-有序性：max.in.flight.requests.per.connection 小于等于 5，且开启幂等性enable.idempotence=true，broker 会对在途的请求按 SeqNum 排序，能保证分区消息的有序性
+Kafka本身支持 Exactly-Once语义：消息不丢失，消息不重复。因此实现消息发送的幂等关键是要实现 Broker端消息的去重。为了实现消息发送的幂等性，Kafka引入了两个新的概念：
+【1】Producer ID (PID)	每个生产者启动时，Broker分配的唯一 ID，用于标识消息来源。
+【2】Sequence Number (SN) 每个 <PID, Partition> 维护一个单调递增的序列号（从 0 开始）
+【3】Broker 端缓存 记录每个 <PID, Partition> 已成功写入的最高序列号（如 lastSN=5）
+Broker 会检查每条消息的 <PID, Partition, SN>：必须满足 SN == lastSN + 1，否则拒绝写入
+例如：，3条消息，已写入 lastSN=0（消息1），下一条必须 SN=1，如果收到 SN=2（消息3），会直接拒绝并返回错误，
+消息3（SN=2）到达 Broker：Broker 发现 lastSN=0，但 SN=2 != lastSN+1，因此 拒绝消息3，生产者收到错误后，会将消息3 重新加入发送队列，等待消息2重试成功
+消息2（SN=1）重试成功：Broker 接受 SN=1（因 lastSN=0 + 1 = 1），更新 lastSN=1，之后，消息3（SN=2）再次尝试发送，此时 lastSN=1 + 1 = 2，成功写入
+但是，只能保证单个 Producer对于同一个 <Topic, Partition>的 Exactly Once语义。不能保证同一个Producer一个 Topic不同的 Partion幂等。
+如何保证有序性：
+enable.idempotence=true；设置该参数，自动开启acks=all保证消息不丢 和 retries=Integer.MAX_VALUE无限重试，否则会丢弃消息，因为要遵守消息不丢失。
+高吞吐+有序性：
+enable.idempotence=true 和 max.in.flight.requests.per.connection = 10～20。会对在途的请求按 SeqNum 排序，能保证分区消息的有序性
+代价：
+1、会出现延迟
+2、阻塞的问题：因为开启了幂等性和循序行，严格遵守顺序号，前序消息未到达，后续消息无法成功写入成功
+
+
+
+⚫生产者发送失败的消息
+当生产者发送消息失败时（如网络问题、Leader不可用等），Kafka生产者客户端会通过内置的重试机制（retries参数配置）将消息暂存到内存中的重试队列（本质是一个发送缓冲区），并延迟重试。这个队列是生产者内部的机制，并非Kafka服务端的持久化队列。
+特点：
+临时性：存在于生产者客户端内存中，进程重启后消失。
+自动重试：达到重试次数后若仍失败，最终会抛出异常或触发回调（如onError）。
+可控性：通过参数如retries、retry.backoff.ms配置。
+
+
+⚫死信队列（Dead Letter Queue, DLQ）
+死信队列是消息系统中通用的设计模式，用于存储无法被正常消费的消息（如格式错误、处理超时等）。
+Kafka本身不原生支持DLQ，但可通过以下方式实现：消费者将处理失败的消息手动发送到另一个指定的Kafka Topic（即DLQ）。需要业务代码或框架（如Spring Kafka）配合实现。
 
 
 ⚫消息如何发送到kafka集群的broker节点中
@@ -253,7 +303,7 @@ https://www.cnblogs.com/luedong/p/16023061.html
 1.多线程
 2.创建更大的topic设置更多的分区和消费者，将原数据写入到新的topic中
 
-⚫kafka如何实现延时消息？
+⚫延时消息实现方式？
 1.时间轮
 2.内存队列+kafka，参考rocketMq
 3.redis zset + kafka
@@ -262,10 +312,11 @@ https://www.cnblogs.com/luedong/p/16023061.html
 ⚫kafka broker如何参数调优？
 	socket.receive.buffer.bytes：102400，单位是byte，socket接受缓冲区的大小，提高发送速度，一般根据网络传输速度和往返延迟时间来设置,如果使用操作系统的socket缓存区那就设置成-1
 	socket.send.buffer.bytes：102400
-	num.network.threads：3，网络服务器用于接受和发送网络请求的线程数，默认是3，提高零拷贝的线程数
-	queued.max.requests：500，请求队列中队列长度的大小，能放多少个请求，在sender子线程发送消息到borker时，队列满了之后会被阻塞。
-	queued.max.requests.byte：-1，	请求队列容量的大小
+	num.network.threads：3，处理网络请求的线程池大小，默认是3，接收生产者发送的消息请求。响应消费者拉取消息的请求。若 Broker 的 CPU 资源充足且网络流量大（如高吞吐场景），可适当增加此值（如 8~16）。
+	queued.max.requests：500，请求队列中队列长度的大小，能放多少个请求，根据batch.size或等待linger.ms时间后，就会进入队列，sender子线程会从该队列获取就绪的消息，发送消息到borker，队列满了之后会被阻塞。
+	queued.max.requests.byte：-1，请求队列容量的大小
 	num.io.threads:8，磁盘io刷盘的线程
+	max.in.flight.requests.per.connection：高吞吐需求：需要最大化发送并行度，业务容忍乱序：分区内消息顺序不重要，消息重试导致无法保证顺序。
 刷盘频率参数：时间和条数
 	log.flush.interval.ms：null，多少时间把pagecache中刷到硬盘上，
 	log.flush.interval.messages:Long.MAX_VALUE，累计多少条数据一起刷到硬盘上。 =1代表同步刷盘，此时就要增加num.io.threads:8参数，但一般刷盘都交给操作系统linux系统来刷盘
@@ -273,6 +324,12 @@ https://www.cnblogs.com/luedong/p/16023061.html
 	num.replica.fetchers:1，主从复制的线程数，如果设置acks=all那么就要提高该线程数，因为生产者发送消息，borker会将所有isr节点都同步之后再返回，如果设置1那么，ack响应就会很慢。
 	replica.fetch.min.bytes:1，每次复制时复制的字节数，
 	replica.fetch.wait.max.ms:500：每次拉取等待的时间，要么达到上面的字节数在拉取复制，要么等待500ms拉去一次复制
+面试回答：
+高并发高吞吐的场景下如何优化
+1、调整生产者分区策略stick，减少网络请求次数和频繁切换分区，批量发送
+2、调整max.in.flight，增加并发度
+3、适当增加batch.size
+
 
 参考链接：https://www.bilibili.com/video/BV1FP4y167nH/?spm_id_from=333.788&vd_source=80c3ca1a77e037f4d86501ba97d54dbb
 
