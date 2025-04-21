@@ -321,7 +321,8 @@ https://www.cnblogs.com/luedong/p/16023061.html
 	log.flush.interval.ms：null，多少时间把pagecache中刷到硬盘上，
 	log.flush.interval.messages:Long.MAX_VALUE，累计多少条数据一起刷到硬盘上。 =1代表同步刷盘，此时就要增加num.io.threads:8参数，但一般刷盘都交给操作系统linux系统来刷盘
 主从复制参数：
-	num.replica.fetchers:1，主从复制的线程数，如果设置acks=all那么就要提高该线程数，因为生产者发送消息，borker会将所有isr节点都同步之后再返回，如果设置1那么，ack响应就会很慢。
+	num.replica.fetchers:1，1、生产者的消息写入请求, 2、消费者的消息读取请求 3、副本之间的数据同步请求，这些线程运行在一个线程池中，采用"reactor模式"处理请求（io多路复用），默认=cpu，建议2*cpu，配合num.network.threads：处理网络连接的线程数(接收请求但不处理I/O)
+主从复制的线程数，如果设置acks=all那么就要提高该线程数，因为生产者发送消息，borker会将所有isr节点都同步之后再返回，如果设置1那么，ack响应就会很慢。
 	replica.fetch.min.bytes:1，每次复制时复制的字节数，
 	replica.fetch.wait.max.ms:500：每次拉取等待的时间，要么达到上面的字节数在拉取复制，要么等待500ms拉去一次复制
 面试回答：
