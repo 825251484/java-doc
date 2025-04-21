@@ -315,15 +315,14 @@ https://www.cnblogs.com/luedong/p/16023061.html
 	num.network.threads：3，处理网络请求的线程池大小，默认是3，接收生产者发送的消息请求。响应消费者拉取消息的请求。若 Broker 的 CPU 资源充足且网络流量大（如高吞吐场景），可适当增加此值（如 8~16）。
 	queued.max.requests：500，请求队列中队列长度的大小，能放多少个请求，根据batch.size或等待linger.ms时间后，就会进入队列，sender子线程会从该队列获取就绪的消息，发送消息到borker，队列满了之后会被阻塞。
 	queued.max.requests.byte：-1，请求队列容量的大小
-	num.io.threads:8，磁盘io刷盘的线程
+	num.io.threads:8，磁盘io刷盘的线程，1、生产者的消息写入请求, 2、消费者的消息读取请求 3、副本之间的数据同步请求，这些线程运行在一个线程池中，采用"reactor模式"处理请求（io多路复用），默认=cpu，建议2*cpu，配合num.network.threads：处理网络连接的线程数(接收请求但不处理I/O)
 	max.in.flight.requests.per.connection：高吞吐需求：需要最大化发送并行度，业务容忍乱序：分区内消息顺序不重要，消息重试导致无法保证顺序。
 刷盘频率参数：时间和条数
 	log.flush.interval.ms：null，多少时间把pagecache中刷到硬盘上，
 	log.flush.interval.messages:Long.MAX_VALUE，累计多少条数据一起刷到硬盘上。 =1代表同步刷盘，此时就要增加num.io.threads:8参数，但一般刷盘都交给操作系统linux系统来刷盘
 主从复制参数：
-	num.replica.fetchers:1，1、生产者的消息写入请求, 2、消费者的消息读取请求 3、副本之间的数据同步请求，这些线程运行在一个线程池中，采用"reactor模式"处理请求（io多路复用），默认=cpu，建议2*cpu，配合num.network.threads：处理网络连接的线程数(接收请求但不处理I/O)
-主从复制的线程数，如果设置acks=all那么就要提高该线程数，因为生产者发送消息，borker会将所有isr节点都同步之后再返回，如果设置1那么，ack响应就会很慢。
-	replica.fetch.min.bytes:1，每次复制时复制的字节数，
+	num.replica.fetchers:1，对于大型集群或高吞吐量场景，可以增加到3-5，主从复制的线程数，如果设置acks=all那么就要提高该线程数，因为生产者发送消息，borker会将所有isr节点都同步之后再返回，如果设置1那么，ack响应就会很慢。，加快副本同步速度，减少副本滞后
+	replica.fetch.min.bytes:1，每次复制时复制的字节数，，提高网络吞吐效率，减少小数据包传输。增加副本同步延迟，可能导致副本滞后增加，典型值范围：1024(1KB)到65536(64KB)
 	replica.fetch.wait.max.ms:500：每次拉取等待的时间，要么达到上面的字节数在拉取复制，要么等待500ms拉去一次复制
 面试回答：
 高并发高吞吐的场景下如何优化
