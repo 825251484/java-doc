@@ -338,3 +338,10 @@ https://www.cnblogs.com/luedong/p/16023061.html
 
 ⚫kafka如何防止脑裂
 在zk中存储一个controller_epoch值，这个值记录当前的控制器是第几代控制器，如果发生脑裂，那么会产生两个controller节点，新节点得epoch会+1，这时向新controller发生得请求会携带旧得epoch，小于新controller中得值，认为是无效得。
+
+⚫kafka集群架构
+Broker：Kafka集群中的每个服务器节点称为Broker，负责消息的存储和转发
+Topic：消息的主题/类别，生产者向Topic发布消息，消费者从Topic订阅消息
+Partition：每个Topic分为一个或多个Partition，实现消息的并行处理和水平扩展
+Replica：每个Partition有多个副本（Replica），分布在不同的Broker上，保证高可用
+Leader/Follower：每个Partition的多个副本中，一个为Leader，其他为Follower
