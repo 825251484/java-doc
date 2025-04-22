@@ -81,6 +81,53 @@ ArraryList是线程不安全的集合类，在并发编程时可能报错：Conc
 取出		remove() 	poll() 		take() 		poll(Time,TimeUnit)
 队首		element() 	peek() 		无			无
 
+
+⚫阻塞队列的阻塞操作是怎么实现的？
+1、take()，poll(long timeout, TimeUnit unit)，队列为空获取元素的时候阻塞
+public E take() throws InterruptedException {
+    final ReentrantLock lock = this.lock;
+    lock.lockInterruptibly(); // 允许在外部终止线程抢锁等待。 
+    try {
+        while (count == 0) { // 队列为空
+            notEmpty.await(); // 当前线程在notEmpty条件上等待，线程等待会释放锁。此时线程会在这里等待，直到调用notEmpty.signal()，线程被唤醒，然后继续执行出队
+        }
+        return dequeue(); // 队列不为空时出队
+    } finally {
+        lock.unlock();
+    }
+}
+
+private void enqueue(E x) {
+    // ... 入队操作 ...
+    notEmpty.signal(); // 唤醒可能正在等待的消费者线程
+}
+
+2、put(E e)，offer(E e,Time,TimeUnit)，队列满了，插入元素
+public void put(E e) throws InterruptedException {
+    checkNotNull(e);
+    final ReentrantLock lock = this.lock;
+    lock.lockInterruptibly();
+    try {
+        while (count == items.length) {
+            notFull.await();  // 线程在此挂起，
+        }
+        enqueue(e);  // 被唤醒后执行
+    } finally {
+        lock.unlock();
+    }
+}
+
+private E dequeue() {
+    // ...出队操作...
+    notFull.signal(); // 只唤醒一个生产者线程
+}
+
+⚫总结
+阻塞队列是通过ReentrantLock的Condition来实现阻塞的，当多线程同时阻塞时。我们可以通过设置ArrayBlockingQueue(int capacity, boolean fair)，设置fair参数来控制ReentrantLock是公平获取锁还是非公平，公平的情况下，谁先调用的put谁就排第一个
+LinkedBlockingQueue和ArrayBlockingQueue和PriorityBlockingQueue使用ReentrantLock的Condition
+SynchronousQueue使用LockSupport.park/unpark实现线程阻塞/唤醒
+
+
 ⚫PriorityQueue和PriorityBlockingQueue区别
 PriorityQueue和PriorityBlockingQueue都是Java集合框架中的队列类，都继承自AbstractQueue，实现了Queue、Collection和Iterable接口。两者都是优先级队列，可以根据元素的优先级对元素进行排序。它们的主要区别在于线程安全性和内部实现机制。
 PriorityQueue是非线程安全的，采用二叉最小堆实现，元素自然排序或自定义比较器排序。在插入和删除元素时，会调整二叉堆中的元素顺序，使其仍然保持堆的性质。因为不是线程安全的，所以在多线程环境下一般需要加锁来保护数据的一致性。
@@ -202,7 +249,7 @@ tryLock()		不响应中断	保持原有中断状态
 
 方法			立即响应中断	超时控制	抛出异常
 lock()			❌		❌	❌
-lockInterruptibly()	✅		❌	InterruptedException
+lockInterruptibly()	✅		❌	InterruptedException   允许在为获取到锁的时候，线程时阻塞的，允许外部通过 Thread.interrupt() 中断正在等待锁的线程
 tryLock()		❌		❌	❌
 tryLock(long,TimeUnit)	✅		✅	InterruptedException
 
@@ -275,6 +322,38 @@ public void execute(Runnable command) {
 线程等待：如果队列中的任务为0，就会阻塞当前线程，线程处于WAITING状态，不消耗CPU资源。（通过 LockSupport.park() 或 Condition.await() 实现）
 线程唤醒：线程的唤醒是在执行execute方法时，当调用workQueue.offer()方法，将任务放入阻塞队列，然后会调用Condition.signal()方法唤醒一个之前的一个阻塞线程。
 链接：https://www.nowcoder.com/discuss/353159131865489408
+
+
+⚫Worker 是什么？
+在 ThreadPoolExecutor 的实现中，Worker 是一个封装类，它包含两个关键部分：
+Thread 对象：实际执行任务的线程。
+Runnable 初始任务（可选）：如果是新创建的线程，可能直接执行传入的第一个任务（firstTask）。
+Worker 本身实现了 Runnable，它的 run() 方法会从任务队列（BlockingQueue<Runnable>）中循环获取任务并执行。
+
+
+⚫为什么用 HashSet<Worker>
+线程池需要管理所有活跃的工作线程（比如统计线程数、中断线程、回收资源等），HashSet 提供了高效的增删查操作。
+注意：HashSet 不是线程安全的，所以修改 workers 集合时需要加锁（如 ReentrantLock）。
+
+
+⚫为什么在addWorker之前加锁？
+工作线程数 workerCount、运行状态 runState、工作线程集合 workers 等）是共享资源
+1、保证线程池的状态，线程池的状态是一个共享状态，如果不加锁可能导致状态不准确，例如调用 shutdown()。
+2、保证线程的数量的准确，防止创建超量的线程，重复创建线程
+3、线程池通常用一个集合（如 HashSet<Worker>）管理所有工作线程。加锁可以防止并发修改这个集合，避免 ConcurrentModificationException 或数据损坏。
+
+
+⚫线程池的关闭行为取决于调用的方法，核心方法有两个：
+shutdown()
+行为：将线程池状态改为 SHUTDOWN，不再接受新任务，但会继续执行已提交的任务（包括队列中的任务和正在执行的任务）。
+所有空闲线程（没有执行任务的线程）会通过中断（interrupt()）被回收。
+适用场景：平滑关闭，确保已提交的任务完成。
+shutdownNow()
+行为：将线程池状态改为STOP，立即拒绝新任务，并尝试中断所有正在执行的任务（通过 Thread.interrupt()）。
+清空任务队列，返回未执行的任务列表（List<Runnable>）。
+注意：正在执行的任务是否真的被中断，取决于任务是否响应中断（比如检查 Thread.interrupted()）。如果任务忽略中断（如未处理 InterruptedException），可能会继续执行直到完成。
+适用场景：强制快速关闭，不关心未完成的任务。
+
 
 
 ⚫自定义线程池：
