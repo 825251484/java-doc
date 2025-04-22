@@ -156,7 +156,7 @@ Kafka 不直接控制预读，而是依赖操作系统的 PageCache 机制。顺
 
 
 ⚫kafka消费分区策略
-Kafka为什么建议使用CooperativeStickyAssignor（kafka2.4.0）消费分区策略，在发送Rebalance的时候，CooperativeStickyAssignor 相比 RangeAssignor、RoundRobinAssignor 和 StickyAssignor 这三者分区分配策略，不会发生全局的Stop the World
+Kafka为什么建议使用CooperativeStickyAssignor（kafka2.4.0）消费分区策略，在发送Rebalance的时候，CooperativeStickyAssignor相比RangeAssignor固定范围、RoundRobinAssignor轮训 和 StickyAssignor粘性 这三者分区分配策略，不会发生全局的Stop the World
 当发生rebalance时仍然能保证一部分的分区的消费
 Group Coordinator渐进式的rebalance
 例如：
