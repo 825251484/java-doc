@@ -198,19 +198,28 @@ JDK 11+ 新项目：HttpClient（未来趋势，但功能较基础）。
 4.解析解析，渲染
 	浏览器拿到http请求返回的html页面进行渲染返回给客户
 	http1.1中Connection: keep-alive是长连接，所以一次url请求后，tcp不会断开/不会四次回收，除非设置Connection: close，请求完就关闭
-	
-在浏览器获取html文件时涉及到的缓存问题
-	1.当浏览器第一次向服务器发送请求时，服务器会将缓存的规则参数放入请求头中返回，有几个重要参数：
+
+
+⚫在浏览器获取html文件时涉及到的缓存问题
+	1.当浏览器第一次向服务器发送请求时，服务器会将缓存的规则参数放入响应头中返回，有几个重要参数：
 		Cache-Control：Cache-Control代表缓存规则，主要用于控制网页缓存规则（Expires缓存过期时间，HTTP/1.1，Expires已经被Cache-Control替代）
+			如果cache-control：no-store：完全禁用缓存，每次请求都从服务器获取最新资源。
+			如果cache-control：no-cache，那么就不会走强制缓存了，直接进入协商缓存的流程，
+			如果cache-control：max-age=3600（缓存在一个小时后失效），那么就会比较时间，看当前缓存是否过期，如果过期那么走协商缓存，
 		Last-Modified：服务器上的资源的最后修改时间
 		Etag：当前资源文件的唯一的编号
-	2.当我第二次发起请求时，
-		  如果cache-control：no-cache，那么就不会走强制缓存了，直接进入协商缓存的流程，
-		  如果cache-control：max-age=xxx（缓存在xxx后失效），那么就会比较时间，看当前缓存是否过期，如果过期那么走协商缓存，
+	2.第二次发起请求时
+		浏览器发现 max-age=3600 未过期，直接读取本地缓存，不会向服务器发送请求。
+		
 	（是否走强制缓存要看Cache-Control配置，强制缓存（本地缓存）分为：浏览器缓存，硬盘缓存（内存缓存(from memory cache) 和硬盘缓存(from disk cache):）
-	3.如果走协商缓存，那么客户端再次发起该请求时，并携带某一个参数：
-		If-Modified-Since = Last-Modified
-		If-None-Match = Etag
-		服务器收到请求后，先判断Etag值是否相等，相等则返回304表示资源无更新，不相等返回资源文件，状态200
-		或者判断Last-Modified是否一致，如果一致代表资源无更新，不一致返回新的Last-Modified和资源文件，状态200
-
+	3.第三次请求：
+		# 浏览器发送条件请求（携带之前服务器返回的ETag）
+		GET /index.html HTTP/1.1
+		If-None-Match: "abc123"  # 浏览器问：“资源还是abc123吗？”  -- 
+		
+		# 服务器检查后响应
+		HTTP/1.1 304 Not Modified  # 服务器说：“没变，继续用缓存吧” --服务器收到请求后，先判断Etag值是否相等，相等则返回304表示资源无更新，不相等返回资源文件，状态200 或者判断Last-Modified是否一致，如果一致代表资源无更新，不一致返回新的Last-Modified和资源文件，状态200
+		Cache-Control: max-age=3600 # 重新下发缓存规则
+	参数说明
+	If-Modified-Since = Last-Modified
+	If-None-Match = Etag
