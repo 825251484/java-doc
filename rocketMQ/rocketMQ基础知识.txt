@@ -144,7 +144,14 @@ rockermq普通集群双主双从：不能自动选主，所采用Dledger（raft�
 
 ⚫消息存储
 rocketmq是通过文件系统来存储的消息，每个文件大小1G，超过1G会生成新的文件，
-其内部结构中有一个commitlog存储着消息，comsumeQueue中存储着消息的索引。一个queue对应一个comsumeQueue，消费者消费消息先找到队列中的索引，然后通过索引查找消息消费
+CommitLog：所有消息的物理存储：所有 Topic 的消息均按顺序追加写入到同一个 CommitLog文件中。最大化磁盘顺序 I/O：避免随机写入，提升吞吐量（即使不同 Topic 的消息也混合存储）。每条消息存储完整原始数据，包括 Topic、QueueId、消息体、Tag、Key 等元信息。
+ConsumeQueue：逻辑消费队列：作为 CommitLog 的轻量级索引，按 Topic 和 Queue 分组存储消息的逻辑偏移量，加速消费定位：消费者直接读取 ConsumeQueue 而非遍历 CommitLog，减少磁盘 I/O。每个 Topic 的每个 Queue 对应一个 ConsumeQueue 文件
+IndexFile：哈希索引+链表结构，基于 Key 的快速检索：通过消息的 Key 或 Tag 构建 Hash 索引，支持按条件查询（如运维排查或业务补偿）。非必须组件：正常消费不依赖 IndexFile，仅用于特殊场景
+消费流程：
+1、消费者订阅指定 Topic 和 Queue（如 TopicA@Queue0），从 Broker 获取该 Queue 对应的 ConsumeQueue 文件。
+2、根据消费者本地的消费位点（Consumer Offset），找到 ConsumeQueue 中对应的记录：假设 offset = 100 → 读取 ConsumeQueue 中第 100 条记录（20字节）。记录中包含：消息在CommitLog中物理位置，以及消息大小
+3、从 CommitLog 加载消息，消费者确认消费成功后，更新本地消费位点
+RocketMQ 更依赖 mmap：因需快速访问 ConsumeQueue 实现灵活消费（如 Tag 过滤），但 sendfile 受过滤逻辑限制。Broker 从 CommitLog 读取消息时，若消息未命中 Page Cache，可能退化为传统 read/write；若命中缓存，则优先使用 sendfile。
 
 
 ⚫消息投递机制：
@@ -172,8 +179,11 @@ push：服务端主动向消费者推送消息。这种模式一旦有数据就�
 	实现方式：push方式里，consumer把轮询过程封装了，并注册MessageListener监听器，取到消息后，唤醒MessageListener的consumeMessage()来消费，对用户而言，感觉消息是被推送过来的。
 pull：消费者每隔一段时间拉去一批消息。不会有消息堆积的问题，但消费消息不及时，并且无消息时，会浪费连接，而且不知道服务端什么时候有消息，拉去消息间隔不好控制
 	实现方式：pull方式里，取消息的过程需要用户自己写，首先通过打算消费的Topic拿到MessageQueue的集合，遍历MessageQueue集合，然后针对每个MessageQueue批量取消息，一次取完后，记录该队列下一次要取的开始offset，直到取完了，再换另一个MessageQueue
-rocketmq采用的DefaultMQPushConsumer模式表面看是推模式：实则是在pull模式基础上，做了一层封装，消费者每隔一段时间拉取消息时，如果有数据那就立即返回，
-如果没数据，会一直保持该连接，直到有数据返回，如果超过30S还没有数据，那就请求超时，断开连接，然后再次发送拉取数据请求
+rocketmq采用的长轮训的方式拉去消息，但是看上去像推：
+1、消费者发起拉取请求，若队列无新消息，Broker 挂起请求（不立即返回），默认等待 15 秒（可配置）。
+2、在此期间，一旦有新消息到达，Broker 立即返回数据；若超时仍无消息，返回空响应。
+3、若 15秒内无消息，Broker 返回 空响应（Pull Status: NO_NEW_MSG）。消费者立即（无延迟）发起下一次拉取请求，形成连续长轮询。（间隔可调整0代表消息无延迟）
+rocketmq可采用pull和push模式，底层都是采用长轮训的模式
 
 
 ⚫消息重试
