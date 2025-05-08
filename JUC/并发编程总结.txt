@@ -186,7 +186,7 @@ AQS全称AbstractQueuedSynchronizer，即抽象的队列同步器，是一种用
 基于AQS的同步器
 ReentrantLock
 Semaphore
-CountDownLatch
+CountDownLatch：使用aqs共享模式，唤醒是“传播式”的：当一个线程被唤醒并成功获取状态后，会继续唤醒后续等待的线程（与独占模式不同，独占模式只唤醒一个线程）。
 ReentrantReadWriteLock
 SynchronusQueue
 FutureTask
@@ -194,7 +194,9 @@ FutureTask
 
 ⚫并发编程常用的辅助类
 CountDownLatch：CountDownLatch 内部维护了⼀个计数器，只有当计数器==0时，某些线程才会停⽌阻塞，开始执⾏，CountDownLatch 主要有两个⽅法， countDown() 来让计数器-1， await() 来让线程阻塞。当count==0 时，阻塞线程⾃动唤醒。
+	原理：继承aqs，每调用 await()，都会对aqs中变量减1，并且会把线程已共享模式放入aqs队列中，当达到数字时，就会唤醒第一个aqs节点，共享模式会传播，继续唤醒后续所有节点
 CyclicBarrier可循环的使用屏障：await()方法加1，直到达到一定数量，⽽CyclicBarrier 是加，理解了CountDownLatch ， CyclicBarrier 就很容易
+	原理：通过ReentrantLock加锁和Condition.await()实现，首先当线程调用await()方法，会先抢锁lock()，如果抢不到锁就阻塞，抢到的话，就对内部维护变量-1，然后当数字!=0，该线程就会Condition.await()阻塞，同时释放锁，另一个线程抢到锁，继续执行该流程，知道数字=0，会调用Condition.signalAll()，唤醒所有线程
 区别：
 1.CyclicBarrier和CountDownLatch的区别CountDownLatch的计数器只能使用一次，而CyclicBarrier的计数器可以使用reset()方法重置，可以使用多次，所以CyclicBarrier能够处理更为复杂的场景；
 2.CyclicBarrier还提供了一些其他有用的方法，比如getNumberWaiting()方法可以获得CyclicBarrier阻塞的线程数量，isBroken()方法用来了解阻塞的线程是否被中断；
