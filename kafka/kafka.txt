@@ -345,4 +345,12 @@ Broker：Kafka集群中的每个服务器节点称为Broker，负责消息的存
 Topic：消息的主题/类别，生产者向Topic发布消息，消费者从Topic订阅消息
 Partition：每个Topic分为一个或多个Partition，实现消息的并行处理和水平扩展
 Replica：每个Partition有多个副本（Replica），分布在不同的Broker上，保证高可用
-Leader/Follower：每个Partition的多个副本中，一个为Leader，其他为Follower
+Leader/Follower：每个Partition的多个副本中，一个为Leader，其他为Follower、
+
+⚫Kafka 2.8+ 逐步移除 ZK：新版本引入 KRaft 模式（基于 Raft 协议），用内置共识机制替代 ZK，简化部署。
+
+
+⚫kafka的集群架构和rocketmq集群架构的区别
+Kafka：完全去中心化，每个分区（Partition）的 Leader 由 ZooKeeper 动态选举。所有 Broker 平等，无固定主从关系，负载均衡更灵活。Kafka 2.8+ 逐步移除 ZK：新版本引入 KRaft 模式（基于 Raft 协议），用内置共识机制替代 ZK，简化部署。
+RocketMQ：采用 Broker 主从架构（Master/Slave），Master 负责读写，Slave 仅备份。NameServer 代替 ZooKeeper，仅维护路由信息（无状态），减轻协调压力。NameServer 不介入 Broker 的主从切换（由 Broker 自身或 DLedger 完成），
+
