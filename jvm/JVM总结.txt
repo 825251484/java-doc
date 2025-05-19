@@ -250,18 +250,6 @@ ThreadLocal内部优化：
 2.get方法，没有直接命中，向后环形查找时会进行清理
 3.remove方法，除了清理当前的entry，海会向后继续清理
 
-⚫TransmittableThreadLocal（TTL）原理
-1.先说InheritableThreadLocal（ITL）是ThreadLocal的子类，它得作用是在创建子线程得时候从父线程中深拷贝一份InheritableThreadLocal内的元素到子线程中，
-是一种快照机制，之后父线程在修改ThreadLocal中值就不会同步给子线程了
-2.如果系统中需要做到 A 和 B 的 InheritableThreadLocal 实时同步，应该如何解决？
-原理1：
-父线程新增线程变量的传递。TTL继承了ITL所以在创建子线程时会从父线程拷贝，但是线程复用，后续不会再次拷贝，线程变量发生变更需要从主线程同步，TtlRunnable每次创建时同步。
-线程执行完后，线程变量的恢复。无论线程变量是在主线程发生变更，还是子线程里发生变更，最终都要恢复到线程最初的值。子线程最初的线程变量暂存在backup。
-原理2：
-1、TTL继承自InheritableThreadLocal。
-2、通过一个Holder，保存了每个线程当前持有的所有ThreadLocal对象。
-3、用TtlRunnable的get方法来包裹一个Runnable对象，包裹对象时，会采用类似SNAPSHOT，快照的机制，通过Holder，捕获父线程当前持有的所有ThreadLocal。随后，子线程启动，在Runnable对象执行run方法之前，从Holder中取出先前捕获到的父线程所持有的ThreadLocal对象，并设置到当前子线程当中，设置之前会保存子线程原有的ThreadLocal作为backUp，当子线程执行结束后，通过backUp恢复其原有的ThreadLocal。
-参考：https://segmentfault.com/a/1190000041954190?sort=votes
 
 
 ⚫什么是内存泄漏，内存溢出？
