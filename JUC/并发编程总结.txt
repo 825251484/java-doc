@@ -357,6 +357,26 @@ shutdownNow()
 适用场景：强制快速关闭，不关心未完成的任务。
 
 
+⚫TransmittableThreadLocal（TTL）原理
+1.先说InheritableThreadLocal（ITL）是ThreadLocal的子类，它得作用是在"创建"子线程得时候从父线程中深拷贝一份InheritableThreadLocal内的元素到子线程中，是一种快照机制，之后父线程在修改ThreadLocal中值就不会同步给子线程了
+2.如果系统中需要做到 A 和 B 的 InheritableThreadLocal 实时同步，应该如何解决？
+原理1：
+父线程新增线程变量的传递。TTL继承了ITL所以在创建子线程时会从父线程拷贝，但是线程复用，后续不会再次拷贝，线程变量发生变更需要从主线程同步，TtlRunnable每次创建时同步。
+线程执行完后，线程变量的恢复。无论线程变量是在主线程发生变更，还是子线程里发生变更，最终都要恢复到线程最初的值。子线程最初的线程变量暂存在backup。
+原理2：
+1、TTL继承自InheritableThreadLocal。
+2、通过一个Holder，保存了每个线程当前持有的所有ThreadLocal对象。
+3、用TtlRunnable的get方法来包裹一个Runnable对象，包裹对象时，会采用类似SNAPSHOT，快照的机制，通过Holder，捕获父线程当前持有的所有ThreadLocal。随后，子线程启动，在Runnable对象执行run方法之前，从Holder中取出先前捕获到的父线程所持有的ThreadLocal对象，并设置到当前子线程当中，设置之前会保存子线程原有的ThreadLocal作为backUp，当子线程执行结束后，通过backUp恢复其原有的ThreadLocal。
+参考：https://segmentfault.com/a/1190000041954190?sort=votes
+
+
+⚫InheritableThreadLocal原理
+线程创建的时候从父线程中深拷贝一份InheritableThreadLocal内的元素到子线程中，因为核心线程复用，导致后续主线程更新值，核心线程都无法拿到，因为只有在“创建”的时候才复制。非核心线程每次创建的时候都会拿到最新值，
+但是仍然不推荐使用itl，因为会导致数据混乱。
+而ttl是是每次提交任务的时候TtlRunnable.get()，将主线程的值深拷贝到子线程，然后将子线程自己的值备份，将主线程的值复制给子线程，然后执行run方法逻辑，执行之后，再将子线程的值的备份还原回来。
+所以主线程修改之后，子线程就可以拿到最新的值。并且子线程修改值也不影响其他子线程。
+
+
 
 ⚫自定义线程池：
 	自定义拒绝策略：实现接口RejectedExecutionHandle重写rejectedExecution(Runnable r,ThreadPoolExecutor executor)
