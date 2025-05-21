@@ -192,6 +192,8 @@ filtered: 存储引擎层返回的结果中包含有效记录数的百分比。�
 extra: 额外的信息
 	Using temporary使用临时表保存中间结果
 	Using index查询时不需要回表查询，就可以获得结果
+	using where 表示存储引擎返回的行需要在服务器层进一步过滤
+	using filesort 表示需要额外的排序操作，无法利用索引的有序性
 	Index Condition Pushdown使用索引条件下推
 
 
