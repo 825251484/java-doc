@@ -106,7 +106,7 @@ private void enqueue(E x) {
 public void put(E e) throws InterruptedException {
     checkNotNull(e);
     final ReentrantLock lock = this.lock;
-    lock.lockInterruptibly();
+    lock.lockInterruptibly(); // 
     try {
         while (count == items.length) {
             notFull.await();  // 线程在此挂起，
@@ -123,7 +123,7 @@ private E dequeue() {
 }
 
 ⚫总结
-阻塞队列是通过ReentrantLock的Condition来实现阻塞的，当多线程同时阻塞时。我们可以通过设置ArrayBlockingQueue(int capacity, boolean fair)，设置fair参数来控制ReentrantLock是公平获取锁还是非公平，公平的情况下，谁先调用的put谁就排第一个
+阻塞队列是通过ReentrantLock的Condition.await()来实现阻塞的，当多线程同时阻塞时。我们可以通过设置ArrayBlockingQueue(int capacity, boolean fair)，设置fair参数来控制ReentrantLock是公平获取锁还是非公平，公平的情况下，谁先调用的put谁就排第一个
 LinkedBlockingQueue和ArrayBlockingQueue和PriorityBlockingQueue使用ReentrantLock的Condition
 SynchronousQueue使用LockSupport.park/unpark实现线程阻塞/唤醒
 
@@ -355,6 +355,19 @@ shutdownNow()
 清空任务队列，返回未执行的任务列表（List<Runnable>）。
 注意：正在执行的任务是否真的被中断，取决于任务是否响应中断（比如检查 Thread.interrupted()）。如果任务忽略中断（如未处理 InterruptedException），可能会继续执行直到完成。
 适用场景：强制快速关闭，不关心未完成的任务。
+
+
+⚫线程池中非核心线程是如何销毁的？
+
+
+
+⚫动态修改线程池参数的原理？
+setCorePoolSize(int corePoolSize)
+	调大：只有当队列中有积压任务才会触发新线程创建，如果所有线程都空闲且队列为空，即使调大核心线程数，也不会立即创建新线程
+	调小：多余的线程都会以poll(keepAliveTime)方式获取任务（带超时）
+setMaximumPoolSize(int maximumPoolSize)
+	如果新值 < 当前线程数：中断一些空闲线程，不会立即减少活跃线程数，而是等待线程完成任务后自然退出
+setRejectedExecutionHandler(RejectedExecutionHandler handler)
 
 
 ⚫TransmittableThreadLocal（TTL）原理
