@@ -201,6 +201,11 @@ JDK 11+ 新项目：HttpClient（未来趋势，但功能较基础）。
 
 总结：WebSocket是基于Socket实现的高级协议，专为Web实时通信设计，而 Socket 是更通用的底层工具。
 
+WebSocket与HTTP区别
+HTTP是无状态的，WebSocket是有状态的持久连接
+HTTP是请求-响应模式，WebSocket支持双向通信
+HTTP每次请求都包含头信息，WebSocket建立连接后传输开销小
+
 
 
 ⚫输入一个网址。请求过程
