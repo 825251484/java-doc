@@ -27,6 +27,13 @@ top是使用最频繁，也是比较全的一个命令。Top命令类似于Windo
 进入线程使用jstack查看线程使用情况，是否又死锁，死循环，或者线程阻塞或等待的情况。还可以通过jmap找到当前内存中使用最多的前几个对象。
 
 
+⚫避免STW的方法：
+1、使用并行堆转储工具：jcmd <pid> GC.heap_dump filename.hprof。jdk11的命令
+2、Arthas异步dump：heapdump --live /path/to/dump.hprof。，阿里巴巴的阿尔萨斯工具，需要安装liunx系统中
+2、添加JVM参数（JDK11+）：-XX:+HeapDumpBeforeFullGC -XX:+HeapDumpAfterFullGC，这个命令是在发生fullgc的情况下生成堆转储文件，利用fullgc本身的stw生成文件，并不会增加stw时间
+4、生产环境建议：在流量低峰期执行，使用从节点(如果有集群)进行dump，限制dump频率
+
+
 ⚫生产中如何定位内存溢出，并解决？
 JVM中有一个命令参数。可以在发生OOM时，记录内存快照信息并生成一个dump文件，我们只需要分析堆内存快照就行了， visualvm分析dump文件,主动dump文件会造成STW，所以设置参数，让系统出现oom时自动dump
 java进程启动时加上开启此功能的启动参数，如下:
