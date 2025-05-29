@@ -79,6 +79,11 @@ Redis Cluster：数据分片存储，避免单节点压力。
 2）原子分配
   通过Redis的RPOP从预分配列表中弹出金额，并记录用户ID（SADD 红包ID:users 用户ID）。
   原子性保证：Lua脚本合并RPOP和SADD操作。
+    # 预分配红包金额（二倍均值法生成）
+    amounts = [2.50, 1.80, 3.20, 1.90, 0.60]  # 示例：10元拆分为5个红包
+    
+    # 存入Redis List（Key格式：red_packet:{红包ID}）
+    redis.lpush("red_packet:123456", *amounts)  # 结果为List: [0.60, 1.90, 3.20, 1.80, 2.50]
 3）异步入账
   抢红包结果通过RocketMQ发送到账户服务，异步更新用户余额（最终一致性）。
 
