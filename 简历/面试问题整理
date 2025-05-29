@@ -30,7 +30,7 @@
 6、diffset原理和diff注解的原理，diffset是否承接正常流量？
 1）diffset原理：aop方式，拦截需要diff的方法，在切面中，通过配置内容，找到目标的类和方法，以及appkey，模拟客户端通过okhttp，异步线程池发送一个http请求。然后执行原方法（diffset方法），
 原方法结束之后，再创建一个异步线程，在线程中通过CompletableFuture获取默认set中结果，进行对比，对比之后把结果放入es
-2）diff注解：请求过来，通过切面方式实现，在切面中，执行原方法，把目标方法封装到Supplier中，然后开启异步线程，把目标方法的查询结果，和封装的Supplier传入异步线程，异步线程执行：Object target = targetSupplier.get();// 在异步线程中执行目标方法
+2）diff注解：请求过来，通过切面方式实现，在切面中，执行原方法，把目标方法封装到Supplier中，然后开启异步线程，把目标方法的查询结果 和 封装的Supplier传入异步线程，异步线程执行：Object target = targetSupplier.get();// 在异步线程中执行目标方法
 然后将传入的结果和异步的结果，做比较
 
 
