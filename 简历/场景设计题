@@ -85,3 +85,6 @@ Redis Cluster：数据分片存储，避免单节点压力。
 3. 退款与对账
   超时未领完：定时任务扫描未领完的红包，剩余金额原路退回。
   对账系统：定期核对Redis、MySQL、账户系统的数据一致性。
+
+
+参考：https://chat.deepseek.com/a/chat/s/7eef8e89-6be2-4c57-80cb-cc1f9ecdfcb8
