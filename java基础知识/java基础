@@ -167,11 +167,20 @@ HTML 示例：String html = "<html> <boby> <p> hello world </p> </boby> </html>"
   5、switch增强，引入在块中引入了 yield 语句来返回值，而不是使用 break，而yield只会跳出当前Switch 块，同时在使用 yield 时，需要有 default 条件
 
 JAVA17特性：
-1.内部类中的方法可以访问外部类中私有变量
-2.Switch 表达式增强，用lambda方式写switch语句
-3.Sealed关键字 类和接口可以限制一个类或接口允许被哪些类继承或实现
-4.基于内存的数据访问 API（Memory Access API）：使用 VarHandle 类来实现原子操作
-5.改进了 G1 垃圾收集器的性能和稳定性
+1、密封类（Sealed Classes）（正式版）：限制哪些类可以继承或实现接口。public sealed class Shape permits Circle, Square { ... }
+2、模式匹配switch（预览）：简化instanceof和switch的语法。
+3、移除实验性AOT和JIT编译器：移除GraalVM相关实验性功能。
+4、增强伪随机数生成器（JEP 356）：提供更灵活的随机数API。
+5、新的macOS渲染管道（JEP 382）：支持Apple Metal加速。
+
+Java 21（LTS，2023年9月发布）
+1、虚拟线程（Virtual Threads）（正式版）：轻量级线程，简化高并发编程。Thread.startVirtualThread(() -> System.out.println("Hello, virtual thread!"));
+	特点：1）轻量级线程（由JVM管理，而非OS线程），可创建数百万个而不会导致系统崩溃。2）与现有Thread API兼容，无需修改代码即可使用。3）适用于I/O密集型任务（如HTTP请求、数据库操作）。
+2、分代ZGC（Generational ZGC）（JEP 439）：提升垃圾回收效率。
+3、记录模式（Record Patterns）（正式版）：直接解构记录类的字段。if (obj instanceof Point(int x, int y)) { ... }
+4、字符串模板（预览）（JEP 430）：内嵌表达式简化字符串拼接。String info = STR."User: \{name}, Age: \{age}";
+5、结构化并发（Structured Concurrency）（正式版）：简化多线程任务管理。
+6、提供统一的API处理有序集合（如列表、队列）。SequencedCollection（有序集合，如List）SequencedSet（有序不重复集合，如LinkedHashSet）SequencedMap（有序Map，如LinkedHashMap）
 
 
 ⚫java内部类分类及特点
