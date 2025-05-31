@@ -73,3 +73,19 @@ TreeMap 和 TreeSet：红黑树
 2、单线程追求更高性能 → TreeMap
 3、需要更严格的有序遍历 → TreeMap（红黑树的有序遍历更稳定）
 
+13、Jetty、Netty、Tomcat
+  1）选 Tomcat 如果：
+  开发标准 Java Web 应用（Spring MVC/JSP）。
+  需要开箱即用的 Servlet 功能（如 Filter、Session）。
+  2）选 Jetty 如果：
+  追求轻量级和快速启动（如微服务、嵌入式应用）。
+  需要更好的 HTTP/2 或 WebSocket 支持。
+  3）选 Netty 如果：
+  需要超高并发（如长连接、即时通讯）。
+  开发非 HTTP 协议（如自定义二进制 RPC 协议）。
+  
+  场景	              推荐技术栈
+  传统企业级 Web 应用	Spring Boot + Tomcat
+  云原生微服务	        Spring Boot + Jetty（或 Undertow）
+  高性能 API 网关	    Netty + 自定义协议
+  游戏服务器	          Netty + Protobuf
