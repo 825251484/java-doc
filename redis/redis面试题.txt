@@ -376,6 +376,28 @@ ziplist(压缩列表)：压缩列表（ziplist）是Redis为了节省内存而�
 	}
 注意：表头节点和其他节点的构造是一样的： 表头节点也有后退指针、分值和成员对象， 不过表头节点的这些属性都不会被用到， 所以图中省略了这些部分， 只显示了表头节点的各个层。
 
+⚫java哪些数据结构可以实现排行榜
+1、TreeMap<Double, List<Student>> scoreMap 结构：
+{
+  95.5: [Student("Alice", 95.5), Student("Bob", 95.5)],
+  88.0: [Student("Charlie", 88.0)],
+  76.5: [Student("David", 76.5), Student("Eve", 76.5)]
+}
+2、ConcurrentSkipListMap<Double, String> scoreToId：需要特殊处理同分数的人
+{
+  95.5: "Alice",
+  92.0: "Bob",
+  88.0: "Charlie"
+}
+
+特性		ConcurrentSkipListMap	TreeMap
+底层结构		跳跃表			红黑树
+线程安全		是			否
+平均时间复杂度	O(log n)		O(log n)
+范围查询性能	优秀			优秀
+内存占用		较高			较低
+
+
 
 
 ⚫redis内存划分的原因：
