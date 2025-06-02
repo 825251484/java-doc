@@ -131,7 +131,10 @@ SynchronousQueue使用LockSupport.park/unpark实现线程阻塞/唤醒
 ⚫PriorityQueue和PriorityBlockingQueue区别
 PriorityQueue和PriorityBlockingQueue都是Java集合框架中的队列类，都继承自AbstractQueue，实现了Queue、Collection和Iterable接口。两者都是优先级队列，可以根据元素的优先级对元素进行排序。它们的主要区别在于线程安全性和内部实现机制。
 PriorityQueue是非线程安全的，采用二叉最小堆实现，元素自然排序或自定义比较器排序。在插入和删除元素时，会调整二叉堆中的元素顺序，使其仍然保持堆的性质。因为不是线程安全的，所以在多线程环境下一般需要加锁来保护数据的一致性。
-PriorityBlockingQueue是线程安全的，采用二叉最小堆实现，元素自然排序或自定义比较器排序。它和PriorityQueue最大的不同，在于PriorityBlockingQueue是阻塞队列。当队列为空时，从队列中获取元素的操作会被阻塞，直到队列中有新的元素被插入。但插入操作永远不会阻塞（因为无界）。
+PriorityBlockingQueue是线程安全的，采用二叉最小堆实现，元素自然排序或自定义比较器排序。
+阻塞区别：
+	PriorityBlockingQueue是阻塞队列。当队列为空时，从队列中获取元素的操作会被阻塞，直到队列中有新的元素被插入。但插入操作永远不会阻塞（因为无界）。
+	PriorityQueue不会阻塞：当队列为空时，调用 poll() 或 peek() 会直接返回 null，而 remove() 或 element() 会抛出 NoSuchElementException。
 
 
 ⚫java锁升级的过程
