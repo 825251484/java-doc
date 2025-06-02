@@ -26,9 +26,15 @@ top是使用最频繁，也是比较全的一个命令。Top命令类似于Windo
 2、如果还未发生OOM，但是cpu飙升，或者内存占用告警，首先通过top命令找出是哪个进程使用cpu较多，并且占用内存较多，然后进入进程，通过jps查看所有线程的使用情况，找到哪个线程占用cpu较多，
 进入线程使用jstack查看线程使用情况，是否又死锁，死循环，或者线程阻塞或等待的情况。还可以通过jmap找到当前内存中使用最多的前几个对象。
 
+方案二
+1、通过top命令找到哪个进程占用cpu最多的进程
+2、通过top -H -p <pid> -o %CPU  # 按CPU排序，输出进程中哪个线程占用cpu最多
+3、通过jstack输出线程使用情况，阻塞，等待，死锁的问题，还能输出栈的信息以及代码:jstack 12345 | grep -A 20 "nid=0xb26e",12345是进程id，nid=0xb26e是16进制线程id。或者用导出命令jstack <pid> > thread.dump  # 导出线程栈，jvisualvm  # 可视化分析
+4、jmap输出当前堆中占用内存最多的前几个对象。定位到代码。
+
 
 ⚫避免STW的方法：
-1、使用并行堆转储工具：jcmd <pid> GC.heap_dump filename.hprof。jdk11的命令
+1、使用并行堆转储工具：jcmd <pid> GC.heap_dump filename.hprof。jdk11的命令，支持 并发堆转储（减少 STW 时间）
 2、Arthas异步dump：heapdump --live /path/to/dump.hprof。，阿里巴巴的阿尔萨斯工具，需要安装liunx系统中
 2、添加JVM参数（JDK11+）：-XX:+HeapDumpBeforeFullGC -XX:+HeapDumpAfterFullGC，这个命令是在发生fullgc的情况下生成堆转储文件，利用fullgc本身的stw生成文件，并不会增加stw时间
 4、生产环境建议：在流量低峰期执行，使用从节点(如果有集群)进行dump，限制dump频率
