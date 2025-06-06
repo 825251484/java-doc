@@ -227,3 +227,12 @@ XA与AT的核心区别
 3.SEATA TCC模式
 4.SEATA SAGA长事务模式
 参考连接：https://seata.io/zh-cn/docs/dev/mode/tcc-mode.html
+
+
+与其他模式对比
+特性	XA	          AT	TCC	Saga
+一致性	强一致	          弱一致	弱一致	最终一致
+隔离性	完全	          部分	业务控制	无
+性能	低	          中	高	中
+侵入性	无	          无	高	中
+适用场景	金融核心系统	常规业务	高性能需求	长事务流程
