@@ -90,6 +90,23 @@ https://www.bilibili.com/video/BV1r54y1f7bU/?spm_id_from=333.788.recommend_more_
 	  https://blog.csdn.net/weililansehudiefei/article/details/70885515 Java IO多路复用技术详解（图）
 	  
 
+⚫IO多路复用select函数执行流程
+阶段 1：客户端发送请求
+	客户端调用 send("GET /file.txt")：发起读请求，
+	用户缓冲区 → Socket缓冲区（CPU拷贝）→ 网卡（DMA）。（参数传递命令等）
+
+阶段 2：服务端接收请求，并读取文件
+	网卡 → 服务端Socket缓冲区（DMA）→ select() 就绪 → 遍历 fd_set → recv() 请求到用户缓冲区，监听fd集合。
+		备注：select()是内核函数，select 只负责 通知数据到达Socket缓冲区
+
+阶段 3：服务端读取文件
+	传统方式（低效）：磁盘 → PageCache → 用户缓冲区（read()）→ Socket缓冲区（send()）→ 网卡（DMA）。
+	零拷贝（高效）：磁盘 → PageCache → Socket缓冲区（sendfile()）→ 网卡（DMA）。
+
+阶段 4：客户端接收文件
+	网卡 → 客户端Socket缓冲区（DMA）→ recv() → 用户缓冲区。
+
+
 ⚫io阻塞，阻塞在哪里？
 第一阶段：将数据从网卡拷贝到内核，第一阶段结束，文件fd就从读未就绪，变成了“读已就绪”状态，（注意：非阻塞io这个阶段是非阻塞的（立即返回），但是第二阶段仍然是阻塞的）
 第二阶段：将数据从内核拷贝到用户空间，这两次拷贝都会阻塞，
