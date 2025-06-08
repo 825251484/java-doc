@@ -60,7 +60,7 @@ ConcurrentSkipListMap 和 ConcurrentSkipListSet：跳跃表
 TreeMap 和 TreeSet：红黑树
 
 对比总结
-特性	          ConcurrentSkipListMap	  TreeMap
+特性	        ConcurrentSkipListMap	  TreeMap
 底层结构	      跳跃表	                  红黑树
 查询复杂度	    O(log n)	              O(log n)
 插入复杂度	    O(log n)	              O(log n)
@@ -102,3 +102,5 @@ TreeMap 和 TreeSet：红黑树
     2）先更新，在更新（存在问题：1、读写都会更新缓存，导致缓存不一致，2、缓存更新失败的问题，导致数据不一致）
     3）先更新，在删除，异步更新缓存。比较好的方案。（增加定时任务，实现缓存与数据库的定期比对对不一致的数据进行自动修复）
   2、串行化：读写两个请求，放入一个有序队列，先进先出，有序消费-rocketmq顺序消息。
+
+16、跳跃表，红黑树，二叉树，b+tree区别
