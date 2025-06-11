@@ -97,7 +97,7 @@ https://www.bilibili.com/video/BV1r54y1f7bU/?spm_id_from=333.788.recommend_more_
 
 阶段 2：服务端接收请求，并读取文件
 	网卡 → 服务端Socket缓冲区（DMA）→ select() 就绪 → 遍历 fd_set → recv() 请求到用户缓冲区，监听fd集合。
-		备注：select()是内核函数，select 只负责通知数据到达Socket缓冲区，可以理解为当fd从网卡到达socket缓存就是准备就绪了，就可以执行数据		的拷贝了。如果是epoll的话，那就是先创建epoll_create创建epoll实例，然后然后创建连接的时候通过epoll_ctl就将fd放入红黑树，然后如		果这个fd从网卡拷贝到了socket缓存区，那么就将fd从红黑树移到就绪队列，然后应用程序while循环调用epoll_wait获取就绪的fd，执行拷贝动作
+		备注：select()是内核函数，select 只负责通知数据到达Socket缓冲区，可以理解为当fd从网卡到达socket缓存就是准备就绪了，就可以执行数据的拷贝了。如果是epoll的话，那就是先创建epoll_create创建epoll实例，然后然后创建连接的时候通过epoll_ctl就将fd放入红黑树，然后如果这个fd从网卡拷贝到了socket缓存区，那么就将fd从红黑树移到就绪队列，然后应用程序while循环调用epoll_wait获取就绪的fd，执行拷贝动作
 阶段 3：服务端读取文件
 	传统方式（低效）：磁盘 → PageCache → 用户缓冲区（read()）→ Socket缓冲区（send()）→ 网卡（DMA）。
 	零拷贝（高效）：磁盘 → PageCache → Socket缓冲区（sendfile()）→ 网卡（DMA）。
