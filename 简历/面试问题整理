@@ -112,3 +112,13 @@ TreeMap 和 TreeSet：红黑树
 问题：分片导致key不同，映射不同solt槽，无法执行批量查询，优化：1、可以改成并行查询，2、使用Hash Tag映射同一个槽
 
 17、跳跃表，红黑树，二叉树，b+tree区别
+
+18、mysql执行顺序
+  FROM 和 JOIN：确定数据来源表
+  WHERE：过滤行数据
+  GROUP BY：分组数据
+  HAVING：过滤分组后的数据
+  SELECT：选择要返回的列
+  DISTINCT：去除重复行
+  ORDER BY：排序结果
+  LIMIT/OFFSET：限制返回行数
