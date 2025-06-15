@@ -122,3 +122,11 @@ TreeMap 和 TreeSet：红黑树
   DISTINCT：去除重复行
   ORDER BY：排序结果
   LIMIT/OFFSET：限制返回行数
+
+19、线程的状态流转
+操作系统通用状态	  Java线程状态	                    说明
+新建	            NEW	                            线程对象已创建但未启动
+就绪	            RUNNABLE	                      线程可运行，等待CPU调度
+运行	            RUNNABLE	                      Java将"就绪"和"运行"都归为RUNNABLE
+阻塞	            BLOCKED/WAITING/TIMED_WAITING	  Java细分为三种阻塞状态
+终止	            TERMINATED	                     线程执行完毕
