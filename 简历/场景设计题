@@ -101,3 +101,9 @@ Redis Cluster：数据分片存储，避免单节点压力。
 
 
 参考：https://chat.deepseek.com/a/chat/s/7eef8e89-6be2-4c57-80cb-cc1f9ecdfcb8
+
+三、设计一个12306系统
+
+
+
+四、写一个测压的逻辑，并发度10，持续5分钟
