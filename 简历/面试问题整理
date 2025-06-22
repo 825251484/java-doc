@@ -130,3 +130,13 @@ TreeMap 和 TreeSet：红黑树
 运行	            RUNNABLE	                      Java将"就绪"和"运行"都归为RUNNABLE
 阻塞	            BLOCKED/WAITING/TIMED_WAITING	  Java细分为三种阻塞状态
 终止	            TERMINATED	                     线程执行完毕
+
+20、dubbo和http区别，http1和http2的区别，websocket和http区别
+
+21、kafka消费者超时导致重分配，批量拉取时怎么消费
+即使批量拉取，消费者也是顺序消费，因为要正确提交offset，当消费者超时没有提交offset会触发reblance。
+mafka开启并行消费，一个线程负责批量拉取，然后消费者框架内部维护了一个线程池，并行多线程调用消费者的方法，
+这种情况下offset怎么保证，那就需要框架内主线程做汇总，统一提交最小的offset，不会让子线程来提交，防止消息丢失
+
+22、用栈实现一个队列（算法题）
+两个栈，一个方法放入第一个栈，一个方法负责从第一个取出来放入第二个，并且从第二个取出
