@@ -325,7 +325,7 @@ public void execute(Runnable command) {
 	2.当 workerCount <= corePoolSize 且 allowCoreThreadTimeOut=false 时，代表这个线程是核心线程，线程使用take() 队列为空时永久阻塞，线程不会超时销毁。（这2个方法的区别是：take()取任务时，如果队列中没有任务了会调用await()阻塞当前线程）
 	注意：ThreadPoolExecutor 的 allowCoreThreadTimeOut(boolean value) 方法动态修改，默认值false：executor.allowCoreThreadTimeOut(false); // 禁止核心线程超时回收（默认值）
 线程等待：如果队列中的任务为0，就会阻塞当前线程，线程处于WAITING状态，不消耗CPU资源。（通过 LockSupport.park() 或 Condition.await() 实现）
-线程唤醒：线程的唤醒是在执行execute方法时，当调用workQueue.offer()方法，将任务放入阻塞队列，然后会调用Condition.signal()方法唤醒一个之前的一个阻塞线程。
+线程唤醒：线程预热之后，线程的唤醒是在执行execute方法时，当调用workQueue.offer()方法，将任务放入阻塞队列，然后会调用Condition.signal()方法唤醒一个之前的一个阻塞线程。
 链接：https://www.nowcoder.com/discuss/353159131865489408
 
 
@@ -334,6 +334,9 @@ public void execute(Runnable command) {
 Thread 对象：实际执行任务的线程。
 Runnable 初始任务（可选）：如果是新创建的线程，可能直接执行传入的第一个任务（firstTask）。
 Worker 本身实现了 Runnable，它的 run() 方法会从任务队列（BlockingQueue<Runnable>）中循环获取任务并执行。
+
+⚫Worker理解：worker就是代表线程，一个线程对应一个worker。核心线程的worker是复用的，非核心线程的worker是会被回收的，当阻塞队列满了之后在创建新的非核心worker来执行，
+当我们线程池处理大量请求之后，此时核心线程已经全部创建，这个时候进来的任务，是直接进入阻塞队列的，然后通过offer唤醒之前被take阻塞的线程来执行任务，之后当创建线程的时候才需要创建worker
 
 
 ⚫为什么用 HashSet<Worker>
